@@ -622,14 +622,14 @@ function hostname_change {
 function nmpr_install {
 
     sudo apt update
-    sudo apt install nginx
+    sudo apt install -y nginx
 
     sudo systemctl start nginx
     sudo systemctl enable nginx
 
     #配置文件 /etc/php/8.2/fpm/pool.d/www.conf
     #/run/php/php8.2-fpm.sock
-    sudo apt install php8.2 php8.2-fpm
+    sudo apt install -y php8.2 php8.2-fpm
 
     # 安装PHP和PHP的扩展
     sudo apt install -y php-redis php-mbstring php-mysql php-gd php-curl
@@ -653,7 +653,7 @@ function nmpr_install {
     sudo apt update
 
     # 安装MySQL服务器
-    sudo apt install mysql-server
+    sudo apt install -y mysql-server
 
     # 启动MySQL服务
     sudo systemctl start mysql
