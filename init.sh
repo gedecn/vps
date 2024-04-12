@@ -687,8 +687,23 @@ function nmpr_install {
 
 function db_backup {
 
-    cd /root
-    wget https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz
+    FILE_URL="https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz"
+    LOCAL_FILE="/root/aliyun-cli-linux-latest-amd64.tgz"
+
+    # 检查文件是否已存在
+    if [ -f "$LOCAL_FILE" ]; then
+        echo "File '$LOCAL_FILE' already exists. Skipping download."
+    else
+        echo "Downloading the latest Aliyun CLI..."
+        wget -q "$FILE_URL" -O "$LOCAL_FILE"
+        if [ $? -eq 0 ]; then
+            echo "Download of Aliyun CLI successful."
+        else
+            echo "Failed to download Aliyun CLI."
+            exit 1
+        fi
+    fi
+
     tar xzvf aliyun-cli-linux-latest-amd64.tgz
     sudo mv aliyun /usr/local/bin
     
