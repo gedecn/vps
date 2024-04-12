@@ -631,8 +631,8 @@ function nmpr_install {
     #/run/php/php8.2-fpm.sock
     sudo apt install php8.2 php8.2-fpm
 
-    # 安装PHP和PHP的Redis扩展
-    sudo apt install -y php-redis
+    # 安装PHP和PHP的扩展
+    sudo apt install -y php-redis php-mbstring php-mysql php-gd
 
     sudo systemctl start php8.2-fpm
     sudo systemctl enable php8.2-fpm
