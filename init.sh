@@ -867,6 +867,7 @@ while [ 2 -gt 0 ]
           ;;
           31)
             nmpr_install
+          ;;
           32)
             db_backup
           ;;
