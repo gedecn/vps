@@ -689,7 +689,7 @@ function db_backup {
 
     cd /root
     wget https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz
-    tar xzvf aliyun-cli-linux-3.0.16-amd64.tgz
+    tar xzvf aliyun-cli-linux-latest-amd64.tgz
     sudo mv aliyun /usr/local/bin
     
     DB_USER=$(prompt_input "DB USER" "")
