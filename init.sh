@@ -752,7 +752,7 @@ if [ \$? -eq 0 ]; then
     echo "Database backup completed successfully."
 
     # 使用阿里云CLI上传到OSS
-    aliyun oss cp -f \$BACKUP_FILE oss://\$OSS_BUCKET/\$OSS_PATH/\$DB_NAME-\$DATE.sql.gz --region \$OSS_REGION --profile akProfile
+    aliyun oss cp -f \$BACKUP_FILE oss://\$OSS_BUCKET/\$OSS_PATH/\$DB_NAME-\$DATE.sql.gz --region \$OSS_REGION --profile akProfile --update
 
     if [ \$? -eq 0 ]; then
         echo "Backup file uploaded to Alibaba Cloud OSS successfully."
