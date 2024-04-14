@@ -633,7 +633,7 @@ function nmpr_install {
     sudo apt install -y php8.2 php8.2-fpm
 
     # 安装PHP和PHP的扩展
-    sudo apt install -y php-redis php-mbstring php-mysql php-gd php-curl
+    sudo apt install -y php-redis php-mbstring php-mysql php-gd php-curl php-xml
 
     sudo systemctl start php8.2-fpm
     sudo systemctl enable php8.2-fpm
