@@ -719,13 +719,6 @@ function db_backup {
     AccessKeyId=$(prompt_input "OSS AccessKeyId" "")
     AccessKeySecret=$(prompt_input "OSS AccessKeySecret" "")
 
-    aliyun configure set \
-  --profile akProfile \
-  --mode AK \
-  --region $OSS_REGION \
-  --access-key-id $AccessKeyId \
-  --access-key-secret $AccessKeySecret
-
     cat <<EOF > /root/mysql_backup.sh
 #!/bin/bash
 
@@ -738,6 +731,8 @@ DB_NAME="$DB_NAME"
 OSS_BUCKET="$OSS_BUCKET"
 OSS_REGION="$OSS_REGION"
 OSS_PATH="$OSS_PATH"
+AccessKeyId="$AccessKeyId"
+AccessKeySecret="$AccessKeySecret"
 
 # 备份文件存储路径及文件名
 BACKUP_DIR="/root/backup/"
@@ -753,6 +748,7 @@ if [ \$? -eq 0 ]; then
     echo "Database backup completed successfully."
 
     # 使用阿里云CLI上传到OSS
+    aliyun configure set --profile akProfile --mode AK --region \$OSS_REGION --access-key-id \$AccessKeyId --access-key-secret \$AccessKeySecret
     aliyun oss cp -f \$BACKUP_FILE oss://\$OSS_BUCKET/\$OSS_PATH/\$DB_NAME-\$DATE.sql.gz --region \$OSS_REGION --profile akProfile --update
 
     if [ \$? -eq 0 ]; then
