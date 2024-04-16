@@ -688,6 +688,44 @@ function nmpr_install {
 
 function db_backup {
 
+    DB_USER=$(prompt_input "DB USER" "")
+    DB_PASSWORD=$(prompt_input "DB PASSWORD" "")
+    DB_NAME=$(prompt_input "DB NAME" "")
+    cronttime=$(prompt_input "cron time (format: minute hour)" "0 1")
+
+    cat <<EOF > /root/mysql_backup.sh
+#!/bin/bash
+
+# MySQL数据库相关配置
+DB_USER="$DB_USER"
+DB_PASSWORD="$DB_PASSWORD"
+DB_NAME="$DB_NAME"
+
+# 备份文件存储路径及文件名
+BACKUP_DIR="/root/backup/"
+mkdir -p \$BACKUP_DIR
+DATE=\$(date +%Y%m%d)
+BACKUP_FILE="\$BACKUP_DIR\$DB_NAME-\$DATE.sql.gz"
+
+# 备份数据库
+mysqldump -u\$DB_USER -p\$DB_PASSWORD \$DB_NAME | gzip > \$BACKUP_FILE
+
+# 检查备份是否成功
+if [ \$? -eq 0 ]; then
+    echo "Database backup completed successfully."
+else
+    echo "Database backup failed."
+fi
+exit 0
+EOF
+
+    chmod +x /root/mysql_backup.sh
+    #添加计划任务
+    cron_add "mysql_backup" "$cronttime * * * /root/mysql_backup.sh > /root/mysql_backup.log"
+}
+
+function oss_backup {
+    #安装阿里云CLI
     FILE_URL="https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz"
     LOCAL_FILE="/root/aliyun-cli-linux-latest-amd64.tgz"
 
@@ -707,11 +745,8 @@ function db_backup {
 
     tar xzvf aliyun-cli-linux-latest-amd64.tgz
     sudo mv aliyun /usr/local/bin
-    
-    DB_USER=$(prompt_input "DB USER" "")
-    DB_PASSWORD=$(prompt_input "DB PASSWORD" "")
-    DB_NAME=$(prompt_input "DB NAME" "")
 
+    
     OSS_BUCKET=$(prompt_input "OSS BUCKET" "")
     OSS_REGION=$(prompt_input "OSS REGION" "")
     OSS_PATH=$(prompt_input "OSS PATH" "")
@@ -719,13 +754,10 @@ function db_backup {
     AccessKeyId=$(prompt_input "OSS AccessKeyId" "")
     AccessKeySecret=$(prompt_input "OSS AccessKeySecret" "")
 
-    cat <<EOF > /root/mysql_backup.sh
-#!/bin/bash
+    cronttime=$(prompt_input "cron time (format: minute hour)" "0 1")
 
-# MySQL数据库相关配置
-DB_USER="$DB_USER"
-DB_PASSWORD="$DB_PASSWORD"
-DB_NAME="$DB_NAME"
+cat <<EOF > /root/oss_backup.sh
+#!/bin/bash
 
 # OSS相关配置
 OSS_BUCKET="$OSS_BUCKET"
@@ -736,36 +768,45 @@ AccessKeySecret="$AccessKeySecret"
 
 # 备份文件存储路径及文件名
 BACKUP_DIR="/root/backup/"
-mkdir -p \$BACKUP_DIR
 DATE=\$(date +%Y%m%d)
 BACKUP_FILE="\$BACKUP_DIR\$DB_NAME-\$DATE.sql.gz"
 
-# 备份数据库
-mysqldump -u\$DB_USER -p\$DB_PASSWORD \$DB_NAME | gzip > \$BACKUP_FILE
+# 使用阿里云CLI上传到OSS
+aliyun configure set --profile akProfile --mode AK --region \$OSS_REGION --access-key-id \$AccessKeyId --access-key-secret \$AccessKeySecret
+aliyun oss cp -f \$BACKUP_FILE oss://\$OSS_BUCKET/\$OSS_PATH/\$DB_NAME-\$DATE.sql.gz --region \$OSS_REGION --profile akProfile --update
 
-# 检查备份是否成功
 if [ \$? -eq 0 ]; then
-    echo "Database backup completed successfully."
-
-    # 使用阿里云CLI上传到OSS
-    aliyun configure set --profile akProfile --mode AK --region \$OSS_REGION --access-key-id \$AccessKeyId --access-key-secret \$AccessKeySecret
-    aliyun oss cp -f \$BACKUP_FILE oss://\$OSS_BUCKET/\$OSS_PATH/\$DB_NAME-\$DATE.sql.gz --region \$OSS_REGION --profile akProfile --update
-
-    if [ \$? -eq 0 ]; then
-        echo "Backup file uploaded to Alibaba Cloud OSS successfully."
-        rm -f \$BACKUP_FILE
-    else
-        echo "Failed to upload the backup file to Alibaba Cloud OSS."
-    fi
+    echo "Backup file uploaded to Alibaba Cloud OSS successfully."
+    rm -f \$BACKUP_FILE
 else
-    echo "Database backup failed."
+    echo "Failed to upload the backup file to Alibaba Cloud OSS."
 fi
+
 exit 0
 EOF
 
-    chmod +x /root/mysql_backup.sh
+    chmod +x /root/oss_backup.sh
     #添加计划任务
-    cron_add "mysql_backup" "0 2 * * * /root/mysql_backup.sh > /root/mysql_backup.log"
+    cron_add "oss_backup" "$cronttime * * * /root/oss_backup.sh > /root/oss_backup.log"
+}
+
+function aliyun_backup {
+    #安装阿里云盘客户端
+    sudo curl -fsSL http://file.tickstep.com/apt/pgp | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/tickstep-packages-archive-keyring.gpg > /dev/null
+    echo "deb [signed-by=/etc/apt/trusted.gpg.d/tickstep-packages-archive-keyring.gpg arch=amd64,arm64] http://file.tickstep.com/apt aliyunpan main" | sudo tee /etc/apt/sources.list.d/tickstep-aliyunpan.list > /dev/null
+    sudo apt-get update
+    sudo apt-get install -y aliyunpan
+
+    #登录云盘
+    aliyunpan login
+
+    backuppath=$(prompt_input "backup file path" "")
+    cronttime=$(prompt_input "cron time (format: minute hour)" "0 1")
+
+    #北京时间凌晨5点
+    cron_add "aliyunpan upload" "$cronttime * * * /bin/bash -c 'aliyunpan upload $backuppath /backup/\$(date +\%Y\%m\%d)'"
+    #所有备份保留7天
+    cron_add "aliyunpan rm" "0 20 * * * /bin/bash -c 'aliyunpan rm /backup/\$(date --date="7 days ago" +\%Y\%m\%d)'"
 }
 
 function main_menu {
@@ -797,7 +838,9 @@ function main_menu {
     29)  安装 s-ui
     30)  修改hostname
     31)  安装nginx php8 mysql8 redis7
-    32)  数据库每日备份到阿里云OSS
+    32)  数据库导出备份
+    33)  备份到阿里云OSS
+    34)  备份到阿里云盘
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -883,6 +926,12 @@ while [ 2 -gt 0 ]
           ;;
           32)
             db_backup
+          ;;
+          33)
+            oss_backup
+          ;;
+          34)
+            aliyun_backup
           ;;
           90)
             juicity_uninstall
