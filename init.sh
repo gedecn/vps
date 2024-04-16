@@ -809,13 +809,6 @@ function aliyun_backup {
     cron_add "aliyunpan rm" "0 20 * * * /bin/bash -c 'aliyunpan rm /backup/\$(date --date="7 days ago" +\%Y\%m\%d)'"
 }
 
-function xanmod_install {
-    wget -qO - https://dl.xanmod.org/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg
-    echo 'deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main' | sudo tee /etc/apt/sources.list.d/xanmod-release.list
-    sudo apt update && sudo apt install linux-xanmod-x64v3
-    reboot
-}
-
 function main_menu {
 
     #标准输入
@@ -848,7 +841,6 @@ function main_menu {
     32)  数据库导出备份
     33)  备份到阿里云OSS
     34)  备份到阿里云盘
-    35)  安装XanMod内核
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -940,9 +932,6 @@ while [ 2 -gt 0 ]
           ;;
           34)
             aliyun_backup
-          ;;
-          35)
-            xanmod_install
           ;;
           90)
             juicity_uninstall
