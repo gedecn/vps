@@ -615,7 +615,7 @@ function hostname_change {
 
     # 修改系统主机名
     echo $NEW_HOSTNAME > /etc/hostname
-    echo "127.0.0.1 $NEW_HOSTNAME" >> /etc/hosts
+    echo "\n127.0.0.1 $NEW_HOSTNAME" >> /etc/hosts
 
     # 刷新系统 hostname 设置
     sudo hostname --file /etc/hostname
