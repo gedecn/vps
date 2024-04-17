@@ -183,7 +183,7 @@ function sb_config {
     hysteria2_port=$(prompt_input "hysteria2 udp port" 443)
     vless_port=$(prompt_input "vless tcp port" 443)
     tuic_port=$(prompt_input "tuic udp port" 8443)
-    vless_port=$(prompt_input "vless tcp port" 8443)
+    vless_ws_port=$(prompt_input "vless ws tcp port" 8443)
 
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
@@ -273,7 +273,7 @@ function sb_config {
         {
             "type": "vless",
             "listen": "::",
-            "listen_port": $vless_port,
+            "listen_port": $vless_ws_port,
             "users": [
                 {
                     "name": "$uuid",
@@ -841,6 +841,7 @@ function main_menu {
     32)  数据库导出备份
     33)  备份到阿里云OSS
     34)  备份到阿里云盘
+    35)  安装哪吒面板
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -932,6 +933,11 @@ while [ 2 -gt 0 ]
           ;;
           34)
             aliyun_backup
+          ;;
+          35)
+            curl -L https://raw.githubusercontent.com/naiba/nezha/master/script/install.sh -o nezha.sh
+            chmod +x nezha.sh
+            sudo ./nezha.sh
           ;;
           90)
             juicity_uninstall
