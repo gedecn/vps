@@ -611,11 +611,33 @@ function dd_os {
 function hostname_change {
     echo "修改hostname"
 
-    hostname=$(prompt_input "hostname" "")
+    NEW_HOSTNAME=$(prompt_input "hostname" "")
 
-    hostnamectl set-hostname $hostname
-    # 更新 /etc/hostname 文件
-    echo $hostname > /etc/hostname
+    # 修改系统主机名
+    echo $NEW_HOSTNAME > /etc/hostname
+
+    # 更新 /etc/hosts 文件
+    HOSTS_FILE="/etc/hosts"
+    IP_ADDRESS="127.0.0.1"  # 可以替换为你的实际IP地址，如果是localhost则无需更改
+
+    # 获取当前的主机名行（假设格式为 IP 主机名 aliases...）
+    CURRENT_LINE=$(grep "^$IP_ADDRESS" "$HOSTS_FILE")
+
+    # 如果找到了对应的行，则替换主机名部分
+    if [[ -n "$CURRENT_LINE" ]]; then
+        NEW_LINE=$(echo "$CURRENT_LINE" | sed "s/\([^ ]*\) .*/\1 $NEW_HOSTNAME/")
+        sudo sed -i "s/$CURRENT_LINE/$NEW_LINE/" "$HOSTS_FILE"
+    else
+        # 如果没有找到对应的行，则直接添加新的行
+        echo "$IP_ADDRESS $NEW_HOSTNAME localhost" | sudo tee -a "$HOSTS_FILE" >/dev/null
+    fi
+
+    # 刷新系统 hostname 设置
+    sudo hostname --file /etc/hostname
+    sudo hostnamectl set-hostname "$NEW_HOSTNAME"
+
+    # 对于某些系统，可能还需要重启相关服务以使更改生效
+    sudo systemctl restart systemd-hostnamed  # 适用于使用systemd的系统
 
     echo "✓ 操作完成"
 }
