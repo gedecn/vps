@@ -846,6 +846,7 @@ function main_menu {
     33)  备份到阿里云OSS
     34)  备份到阿里云盘
     35)  安装哪吒面板
+    36)  安装 S-UI
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -942,6 +943,9 @@ while [ 2 -gt 0 ]
             curl -L https://raw.githubusercontent.com/naiba/nezha/master/script/install.sh -o nezha.sh
             chmod +x nezha.sh
             sudo ./nezha.sh
+          ;;
+          36)
+            bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh)
           ;;
           90)
             juicity_uninstall
