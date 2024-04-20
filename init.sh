@@ -183,13 +183,13 @@ function sb_config {
     hysteria2_port=$(prompt_input "hysteria2 udp port" 443)
     vless_port=$(prompt_input "vless tcp port" 443)
     tuic_port=$(prompt_input "tuic udp port" 8443)
-    vless_ws_port=$(prompt_input "vless ws tcp port" 8443)
+    vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
 
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "")
-    vless_path=$(prompt_input "vless ws path" "cf8443")
+    vmess_path=$(prompt_input "vmess ws path" "cf8443")
 
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
@@ -271,9 +271,9 @@ function sb_config {
             }
         },
         {
-            "type": "vless",
+            "type": "vmess",
             "listen": "::",
-            "listen_port": $vless_ws_port,
+            "listen_port": $vmess_ws_port,
             "users": [
                 {
                     "name": "$uuid",
@@ -282,7 +282,7 @@ function sb_config {
             ],
             "transport": {
                 "type": "ws",
-                "path": "/$vless_path"
+                "path": "/$vmess_path"
             }
         }
     ],
