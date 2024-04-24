@@ -615,7 +615,21 @@ function hostname_change {
 
     # 修改系统主机名
     echo $NEW_HOSTNAME > /etc/hostname
-    echo "\n127.0.0.1 $NEW_HOSTNAME" >> /etc/hosts
+
+    # 定义要添加的记录，例如：IP地址 主机名1 主机名2
+    NEW_ENTRY="127.0.0.1 $NEW_HOSTNAME"
+
+    # 备份/etc/hosts文件
+    sudo cp /etc/hosts /etc/hosts.backup-$(date +%Y%m%d%H%M%S)
+
+    # 检查是否已存在该条目，如果不存在则追加
+    if ! grep -q "$NEW_ENTRY" /etc/hosts; then
+        echo "Adding entry to /etc/hosts: $NEW_ENTRY"
+        sudo sh -c "echo '$NEW_ENTRY' >> /etc/hosts"
+        echo "Entry added successfully."
+    else
+        echo "The entry already exists in /etc/hosts. No changes were made."
+    fi
 
     # 刷新系统 hostname 设置
     sudo hostname --file /etc/hostname
