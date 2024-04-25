@@ -719,7 +719,8 @@ function ssl_install {
     # 定义变量
     DOMAIN=$(prompt_input "your domain" "")
     EMAIL=$(prompt_input "your email" "")
-    CERT_DIR=$(prompt_input "certificates path" "/etc/letsencrypt")
+    CERT_DIR="/etc/letsencrypt"
+    NGINX_CONF="/etc/nginx/sites-available/default" # Nginx配置文件路径，根据实际情况修改
 
     # 安装或更新acme.sh
     if ! command -v acme.sh &> /dev/null; then
@@ -730,7 +731,34 @@ function ssl_install {
     ~/.acme.sh/acme.sh --upgrade --auto-upgrade
 
     # 申请证书，使用http验证方式
-    ~/.acme.sh/acme.sh --issue -d $DOMAIN --webroot "$CERT_DIR" --email $EMAIL --cert-file "$CERT_DIR/$DOMAIN.cert" --key-file "$CERT_DIR/$DOMAIN.key" --fullchain-file "$CERT_DIR/$DOMAIN.fullchain.crt"
+    ~/.acme.sh/acme.sh --issue -d $DOMAIN --webroot "$CERT_DIR" --email $EMAIL --cert-file "$CERT_DIR/$DOMAIN.crt" --key-file "$CERT_DIR/$DOMAIN.key" --fullchain-file "$CERT_DIR/$DOMAIN.fullchain.crt" --reloadcmd "service nginx force-reload"
+
+    # 配置Nginx以使用新证书
+    cat <<EOF > $NGINX_CONF
+    server {
+        listen 80;
+        server_name $DOMAIN;
+        return 301 https://\$server_name\$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name $DOMAIN;
+
+        ssl_certificate $CERT_DIR/$DOMAIN.fullchain.crt;
+        ssl_certificate_key $CERT_DIR/$DOMAIN.key;
+
+        root /var/www/html;
+        index index.html index.php;
+
+        location / {
+            try_files \$uri \$uri/ =404;
+        }
+    }
+EOF
+
+    # 测试Nginx配置并应用
+    nginx -t && nginx -s reload
 
     # 设置自动续签
     ~/.acme.sh/acme.sh --cron --home ~/.acme.sh --config-home ~/.acme.sh/config --days 30 # 每30天检查一次
