@@ -721,13 +721,45 @@ function ssl_install {
     email=$(prompt_input "your domain email" "")
     webroot=$(prompt_input "web server root" "/var/www/html")
 
-    curl https://get.acme.sh | sh -s email=$email
-    
+    #curl https://get.acme.sh | sh -s email=$email
+
     # acme.sh 目录
     ACME_SH_DIR="$HOME/.acme.sh"
-    $ACME_SH_DIR/acme.sh --issue -d $domain -w $webroot --force
+    #$ACME_SH_DIR/acme.sh --issue -d $domain -w $webroot --force
     # 安装证书
+    mkdir -p /root/cert/$domain
     $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /root/cert/$domain/private.key --fullchain-file /root/cert/$domain/cert.crt
+
+    #nginx config
+    mkdir -p /data/wwwroot/$domain
+    cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
+server {
+    listen 80;
+    server_name $domain;
+    return 301 https://www.favseek.com\$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name $domain;
+    root   /data/wwwroot/$domain;
+    
+    access_log off;
+    ssl_certificate /root/cert/$domain/cert.crt;
+    ssl_certificate_key /root/cert/$domain/private.key;
+	
+    location / {
+        index  index.php index.html index.htm;
+    }
+	
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+    }
+}
+EOF
+    systemctl reload nginx
 }
 
 
