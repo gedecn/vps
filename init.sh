@@ -719,7 +719,7 @@ function ssl_install {
     # 定义变量
     DOMAIN=$(prompt_input "your domain" "")
     EMAIL=$(prompt_input "your email" "")
-    CERT_DIR=$(prompt_input "certificates path" "/root/cert")
+    CERT_DIR=$(prompt_input "certificates path" "/etc/letsencrypt")
 
     # 安装或更新acme.sh
     if ! command -v acme.sh &> /dev/null; then
@@ -729,15 +729,17 @@ function ssl_install {
     # 更新acme.sh到最新版本
     ~/.acme.sh/acme.sh --upgrade --auto-upgrade
 
-    # 申请证书
-    ~/.acme.sh/acme.sh --issue -d $DOMAIN --dns dns_cloudflare --email $EMAIL --cert-file "$CERT_DIR/$DOMAIN.crt" --key-file "$CERT_DIR/$DOMAIN.key" --fullchain-file "$CERT_DIR/$DOMAIN.fullchain.crt"
+    # 申请证书，使用http验证方式
+    ~/.acme.sh/acme.sh --issue -d $DOMAIN --webroot "$CERT_DIR" --email $EMAIL --cert-file "$CERT_DIR/$DOMAIN.cert" --key-file "$CERT_DIR/$DOMAIN.key" --fullchain-file "$CERT_DIR/$DOMAIN.fullchain.crt"
+
     # 设置自动续签
-    ~/.acme.sh/acme.sh --cron --home ~/.acme.sh --config-home ~/.acme.sh/config --days 30 # 设置每30天检查一次，可按需调整
+    ~/.acme.sh/acme.sh --cron --home ~/.acme.sh --config-home ~/.acme.sh/config --days 30 # 每30天检查一次
+
     # 输出结果
     if [ $? -eq 0 ]; then
-        echo "SSL certificate for $DOMAIN has been successfully issued and saved to $CERT_DIR."
+        echo "SSL certificate for $DOMAIN has been successfully issued, Nginx is configured, and auto-renewal is set up."
     else
-        echo "Failed to issue the SSL certificate for $DOMAIN. Please check the logs for details."
+        echo "Failed to issue the SSL certificate, configure Nginx, or set up auto-renewal. Please check the logs for details."
     fi
 }
 
