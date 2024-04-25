@@ -718,57 +718,64 @@ function ssl_install {
 
     # 定义变量
     DOMAIN=$(prompt_input "your domain" "")
-    EMAIL=$(prompt_input "your email" "")
-    CERT_DIR="/etc/letsencrypt"
-    NGINX_CONF="/etc/nginx/sites-available/default" # Nginx配置文件路径，根据实际情况修改
 
-    # 安装或更新acme.sh
-    if ! command -v acme.sh &> /dev/null; then
+    # 检查是否安装了 acme.sh
+    if ! command -v acme.sh &> /dev/null
+    then
+        echo "acme.sh 未安装,正在安装..."
         curl https://get.acme.sh | sh
     fi
 
-    # 更新acme.sh到最新版本
-    ~/.acme.sh/acme.sh --upgrade --auto-upgrade
+    # 获取域名
+    domain=$(prompt_input "your domain" "")
 
-    # 申请证书，使用http验证方式
-    ~/.acme.sh/acme.sh --issue -d $DOMAIN --webroot "$CERT_DIR" --email $EMAIL --cert-file "$CERT_DIR/$DOMAIN.crt" --key-file "$CERT_DIR/$DOMAIN.key" --fullchain-file "$CERT_DIR/$DOMAIN.fullchain.crt" --reloadcmd "service nginx force-reload"
+    # 选择验证方式
+    PS3='请选择验证方式: '
+    options=("HTTP 验证" "DNS 验证")
+    select opt in "${options[@]}"
+    do
+        case $opt in
+            "HTTP 验证")
+                read -p "请输入网站根目录路径: " webroot
+                acme.sh --issue -d $domain -w $webroot
+                break
+                ;;
+            "DNS 验证")
+                PS3='请选择 DNS 服务商: '
+                dns_options=("Cloudflare" "DNSPod" "手动添加 TXT 记录")
+                select dns_opt in "${dns_options[@]}"
+                do
+                    case $dns_opt in
+                        "Cloudflare")
+                            read -p "请输入 Cloudflare API Key: " cf_key
+                            read -p "请输入 Cloudflare 账号邮箱: " cf_email
+                            export CF_Key="$cf_key"
+                            export CF_Email="$cf_email"
+                            acme.sh --issue -d $domain --dns dns_cf
+                            break 2
+                            ;;
+                        "DNSPod")
+                            read -p "请输入 DNSPod API ID: " dp_id
+                            read -p "请输入 DNSPod API Key: " dp_key
+                            export DP_Id="$dp_id"
+                            export DP_Key="$dp_key"
+                            acme.sh --issue -d $domain --dns dns_dp
+                            break 2
+                            ;;
+                        "手动添加 TXT 记录")
+                            acme.sh --issue -d $domain --dns
+                            break 2
+                            ;;
+                        *) echo "无效选择,请重试";;
+                    esac
+                done
+                ;;
+            *) echo "无效选择,请重试";;
+        esac
+    done
 
-    # 配置Nginx以使用新证书
-    cat <<EOF > $NGINX_CONF
-    server {
-        listen 80;
-        server_name $DOMAIN;
-        return 301 https://\$server_name\$request_uri;
-    }
-
-    server {
-        listen 443 ssl;
-        server_name $DOMAIN;
-
-        ssl_certificate $CERT_DIR/$DOMAIN.fullchain.crt;
-        ssl_certificate_key $CERT_DIR/$DOMAIN.key;
-
-        root /var/www/html;
-        index index.html index.php;
-
-        location / {
-            try_files \$uri \$uri/ =404;
-        }
-    }
-EOF
-
-    # 测试Nginx配置并应用
-    nginx -t && nginx -s reload
-
-    # 设置自动续签
-    ~/.acme.sh/acme.sh --cron --home ~/.acme.sh --config-home ~/.acme.sh/config --days 30 # 每30天检查一次
-
-    # 输出结果
-    if [ $? -eq 0 ]; then
-        echo "SSL certificate for $DOMAIN has been successfully issued, Nginx is configured, and auto-renewal is set up."
-    else
-        echo "Failed to issue the SSL certificate, configure Nginx, or set up auto-renewal. Please check the logs for details."
-    fi
+    # 安装证书
+    acme.sh --installcert -d $domain --key-file /root/cert/$domain/private.key --fullchain-file /root/cert/$domain/cert.crt
 }
 
 
