@@ -716,66 +716,18 @@ function redis_install {
 
 function ssl_install {
 
-    # 定义变量
-    DOMAIN=$(prompt_input "your domain" "")
-
-    # 检查是否安装了 acme.sh
-    if ! command -v acme.sh &> /dev/null
-    then
-        echo "acme.sh 未安装,正在安装..."
-        curl https://get.acme.sh | sh
-    fi
-
     # 获取域名
     domain=$(prompt_input "your domain" "")
+    email=$(prompt_input "your domain email" "")
+    webroot=$(prompt_input "web server root" "/var/www/html")
 
-    # 选择验证方式
-    PS3='请选择验证方式: '
-    options=("HTTP 验证" "DNS 验证")
-    select opt in "${options[@]}"
-    do
-        case $opt in
-            "HTTP 验证")
-                read -p "请输入网站根目录路径: " webroot
-                acme.sh --issue -d $domain -w $webroot
-                break
-                ;;
-            "DNS 验证")
-                PS3='请选择 DNS 服务商: '
-                dns_options=("Cloudflare" "DNSPod" "手动添加 TXT 记录")
-                select dns_opt in "${dns_options[@]}"
-                do
-                    case $dns_opt in
-                        "Cloudflare")
-                            read -p "请输入 Cloudflare API Key: " cf_key
-                            read -p "请输入 Cloudflare 账号邮箱: " cf_email
-                            export CF_Key="$cf_key"
-                            export CF_Email="$cf_email"
-                            acme.sh --issue -d $domain --dns dns_cf
-                            break 2
-                            ;;
-                        "DNSPod")
-                            read -p "请输入 DNSPod API ID: " dp_id
-                            read -p "请输入 DNSPod API Key: " dp_key
-                            export DP_Id="$dp_id"
-                            export DP_Key="$dp_key"
-                            acme.sh --issue -d $domain --dns dns_dp
-                            break 2
-                            ;;
-                        "手动添加 TXT 记录")
-                            acme.sh --issue -d $domain --dns
-                            break 2
-                            ;;
-                        *) echo "无效选择,请重试";;
-                    esac
-                done
-                ;;
-            *) echo "无效选择,请重试";;
-        esac
-    done
-
+    curl https://get.acme.sh | sh -s email=$email
+    
+    # acme.sh 目录
+    ACME_SH_DIR="$HOME/.acme.sh"
+    $ACME_SH_DIR/acme.sh --issue -d $domain -w $webroot --force
     # 安装证书
-    acme.sh --installcert -d $domain --key-file /root/cert/$domain/private.key --fullchain-file /root/cert/$domain/cert.crt
+    $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /root/cert/$domain/private.key --fullchain-file /root/cert/$domain/cert.crt
 }
 
 
