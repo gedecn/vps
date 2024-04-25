@@ -638,13 +638,19 @@ function hostname_change {
     echo "✓ 操作完成"
 }
 
-function nmpr_install {
+function nginx_install {
 
     sudo apt update
     sudo apt install -y nginx
 
     sudo systemctl start nginx
     sudo systemctl enable nginx
+}
+
+
+function php_install {
+
+    sudo apt update
 
     #配置文件 /etc/php/8.2/fpm/pool.d/www.conf
     #/run/php/php8.2-fpm.sock
@@ -655,7 +661,13 @@ function nmpr_install {
 
     sudo systemctl start php8.2-fpm
     sudo systemctl enable php8.2-fpm
+}
 
+
+function mysql_install {
+
+    sudo apt update
+ 
     # 安装wget和GnuPG，这些是下载和验证MySQL APT配置包所必需的
     sudo apt install -y gnupg
 
@@ -682,6 +694,12 @@ function nmpr_install {
 
     # 运行安全脚本来提高MySQL安全性
     sudo mysql_secure_installation
+}
+
+
+function redis_install {
+
+    sudo apt update
 
     # 安装Redis服务器
     sudo apt install -y redis-server
@@ -692,17 +710,37 @@ function nmpr_install {
     # 设置Redis服务开机自启
     sudo systemctl enable redis-server
 
-    sudo systemctl status nginx
-    sudo systemctl status php8.2-fpm
-    php -m | grep redis
-    # 输出MySQL版本以验证安装
-    mysql -V
-    # 检查Redis服务状态
-    sudo systemctl status redis-server
-    # 打印Redis版本信息，验证安装成功
     redis-server --version
-
 }
+
+
+function ssl_install {
+
+    # 定义变量
+    DOMAIN=$(prompt_input "your domain" "")
+    EMAIL=$(prompt_input "your email" "")
+    CERT_DIR=$(prompt_input "certificates path" "/root/cert")
+
+    # 安装或更新acme.sh
+    if ! command -v acme.sh &> /dev/null; then
+        curl https://get.acme.sh | sh
+    fi
+
+    # 更新acme.sh到最新版本
+    ~/.acme.sh/acme.sh --upgrade --auto-upgrade
+
+    # 申请证书
+    ~/.acme.sh/acme.sh --issue -d $DOMAIN --dns dns_cloudflare --email $EMAIL --cert-file "$CERT_DIR/$DOMAIN.crt" --key-file "$CERT_DIR/$DOMAIN.key" --fullchain-file "$CERT_DIR/$DOMAIN.fullchain.crt"
+    # 设置自动续签
+    ~/.acme.sh/acme.sh --cron --home ~/.acme.sh --config-home ~/.acme.sh/config --days 30 # 设置每30天检查一次，可按需调整
+    # 输出结果
+    if [ $? -eq 0 ]; then
+        echo "SSL certificate for $DOMAIN has been successfully issued and saved to $CERT_DIR."
+    else
+        echo "Failed to issue the SSL certificate for $DOMAIN. Please check the logs for details."
+    fi
+}
+
 
 function db_backup {
 
@@ -855,16 +893,20 @@ function main_menu {
     28)  科技lion脚本
     29)  安装 s-ui
     30)  修改hostname
-    31)  安装nginx php8 mysql8 redis7
+    31)  申请SSL证书
     32)  数据库导出备份
     33)  备份到阿里云OSS
     34)  备份到阿里云盘
     35)  安装哪吒面板
     36)  安装 S-UI
+    37)  安装nginx
+    38)  安装php8
+    39)  安装mysql8
+    40)  安装redis7
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
-    99)  退出
+    0)  退出
 
 EOF
 }
@@ -942,7 +984,7 @@ while [ 2 -gt 0 ]
             hostname_change
           ;;
           31)
-            nmpr_install
+            ssl_install
           ;;
           32)
             db_backup
@@ -961,6 +1003,18 @@ while [ 2 -gt 0 ]
           36)
             bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh)
           ;;
+          37)
+            nginx_install
+          ;;
+          38)
+            php_install
+          ;;
+          39)
+            mysql_install
+          ;;
+          40)
+            redis_install
+          ;;
           90)
             juicity_uninstall
           ;;
@@ -970,7 +1024,7 @@ while [ 2 -gt 0 ]
           92)
             hy2_uninstall
           ;;
-          99)
+          0)
             exit
           ;;
           *)
