@@ -109,7 +109,7 @@ EOF
 
     # Restart SSH service
     #sshd 对 socket 的依赖
-    mv /etc/systemd/system/ssh.service.d/ /etc/systemd/system/ssh.service.d.disabed/
+    #mv /etc/systemd/system/ssh.service.d/ /etc/systemd/system/ssh.service.d.disabed/
     systemctl disable --now ssh.socket
     systemctl enable  --now ssh.service
     systemctl restart ssh.service
