@@ -924,7 +924,6 @@ function main_menu {
     38)  安装php8
     39)  安装mysql8
     40)  安装redis7
-    41)  realm 转发脚本
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -1036,9 +1035,6 @@ while [ 2 -gt 0 ]
           ;;
           40)
             redis_install
-          ;;
-          41)
-            wget https://raw.githubusercontent.com/Jaydooooooo/Port-forwarding/main/RealmOneKey.sh && chmod +x RealmOneKey.sh && ./RealmOneKey.sh
           ;;
           90)
             juicity_uninstall
