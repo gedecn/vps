@@ -886,6 +886,53 @@ function aliyun_backup {
     cron_add "aliyunpan rm" "0 20 * * * /bin/bash -c 'aliyunpan rm /backup/\$(date --date="7 days ago" +\%Y\%m\%d)'"
 }
 
+function realm_install {
+
+    #https://github.com/zhboner/realm/releases
+    realmreleases=$(prompt_input "realm releases" "v2.5.4")
+    realmlistenport=$(prompt_input "realm listen port" "2443")
+    realmremote=$(prompt_input "realm remote" "102.129.195.130:1443")
+
+    wget -O realm.tar.gz https://github.com/zhboner/realm/releases/download/$realmreleases/realm-x86_64-unknown-linux-gnu.tar.gz
+    tar -xvf realm.tar.gz
+    chmod +x realm
+
+    cat <<EOF > /root/realm_config.toml
+[log]
+level = "off"
+[network]
+use_udp = true
+[[endpoints]]
+listen = "0.0.0.0:$realmlistenport"
+remote = "$realmremote"
+EOF
+
+    cat <<EOF > /etc/systemd/system/realm.service
+[Unit]
+Description=realm
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
+
+[Service]
+Type=simple
+User=root
+Restart=on-failure
+RestartSec=5s
+DynamicUser=true
+WorkingDirectory=/root
+ExecStart=/root/realm -c /root/realm_config.toml
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable realm
+    systemctl restart realm
+    systemctl status realm
+
+}
+
 function main_menu {
 
     #标准输入
@@ -912,7 +959,7 @@ function main_menu {
     26)  cloudflare 动态DDNS
     27)  DD系统
     28)  科技lion脚本
-    29)  安装 s-ui
+    29)  安装realm转发
     30)  修改hostname
     31)  申请SSL证书
     32)  数据库导出备份
@@ -999,7 +1046,7 @@ while [ 2 -gt 0 ]
             ./kejilion.sh
           ;;
           29)
-            bash <(curl -Ls https://raw.githubusercontent.com/alireza0/s-ui/master/install.sh)
+            realm_install
           ;;
           30)
             hostname_change
