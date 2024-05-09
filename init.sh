@@ -179,17 +179,13 @@ function sb_config {
     [ ! -d /etc/sing-box ] && mkdir -p /etc/sing-box
 
     # User inputs
-    socks_port=$(prompt_input "socks5 port" 8444)
     hysteria2_port=$(prompt_input "hysteria2 udp port" 443)
     vless_port=$(prompt_input "vless tcp port" 443)
-    tuic_port=$(prompt_input "tuic udp port" 8443)
-    vless_ws_port=$(prompt_input "vless ws tcp port" 8443)
 
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
-    reality_server=$(prompt_input "reality server" "")
-    vless_path=$(prompt_input "vless ws path" "cf8443")
+    reality_server=$(prompt_input "reality server" "swcdn.apple.com")
 
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
@@ -201,17 +197,6 @@ function sb_config {
     },
     "inbounds": [
         {
-            "type": "socks",
-            "listen": "::",
-            "listen_port": $socks_port,
-            "users": [
-                {
-                    "username": "$uuid",
-                    "password": "$uuid"
-                }
-            ]
-        },
-        {
             "type": "hysteria2",
             "listen": "::",
             "listen_port": $hysteria2_port,
@@ -221,24 +206,6 @@ function sb_config {
                 }
             ],
             "masquerade": "https://bing.com",
-            "tls": {
-                "enabled": true,
-                "alpn": ["h3"],
-                "certificate_path": "/root/cert/cert.pem",
-                "key_path": "/root/cert/private.key"
-            }
-        },
-        {
-            "type": "tuic",
-            "listen": "::",
-            "listen_port": $tuic_port,
-            "users": [
-                {
-                    "uuid": "$uuid",
-                    "password": "$uuid"
-                }
-            ],
-            "congestion_control": "bbr",
             "tls": {
                 "enabled": true,
                 "alpn": ["h3"],
@@ -268,21 +235,6 @@ function sb_config {
                     "private_key": "$reality_private",
                     "short_id": ["$reality_short_id"]
                 }
-            }
-        },
-        {
-            "type": "vless",
-            "listen": "::",
-            "listen_port": $vless_ws_port,
-            "users": [
-                {
-                    "name": "$uuid",
-                    "uuid": "$uuid"
-                }
-            ],
-            "transport": {
-                "type": "ws",
-                "path": "/$vless_path"
             }
         }
     ],
