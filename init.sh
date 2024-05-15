@@ -179,19 +179,22 @@ function sb_config {
     [ ! -d /etc/sing-box ] && mkdir -p /etc/sing-box
 
     # User inputs
-    hysteria2_port=$(prompt_input "hysteria2 udp port" 443)
-    vless_port=$(prompt_input "vless tcp port" 443)
+    hysteria2_port=$(prompt_input "hysteria2 udp port" 1443)
+    vless_port=$(prompt_input "vless tcp port" 1443)
 
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "swcdn.apple.com")
 
+    vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
+    vmess_path=$(prompt_input "vmess ws path" "cf8443")
+
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
 {
     "log": {
-        "disabled": false,
+        "disabled": true,
         "level": "error",
         "timestamp": true
     },
@@ -235,6 +238,21 @@ function sb_config {
                     "private_key": "$reality_private",
                     "short_id": ["$reality_short_id"]
                 }
+            }
+        },
+        {
+            "type": "vmess",
+            "listen": "::",
+            "listen_port": $vmess_ws_port,
+            "users": [
+                {
+                    "name": "$uuid",
+                    "uuid": "$uuid"
+                }
+            ],
+            "transport": {
+                "type": "ws",
+                "path": "/$vmess_path"
             }
         }
     ],
