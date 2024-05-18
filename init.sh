@@ -190,6 +190,8 @@ function sb_config {
     vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
     vmess_path=$(prompt_input "vmess ws path" "cf8443")
 
+    ss_port==$(prompt_input "shadowsocks port" 10443)
+
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
 {
@@ -254,6 +256,13 @@ function sb_config {
                 "type": "ws",
                 "path": "/$vmess_path"
             }
+        },
+        {
+            "type": "shadowsocks",
+            "listen": "::",
+            "listen_port": $ss_port,
+            "method": "aes-256-gcm",
+            "password": "$uuid"
         }
     ],
     "outbounds": [
