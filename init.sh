@@ -698,19 +698,32 @@ function ssl_install {
     # 获取域名
     domain=$(prompt_input "your domain" "")
     email=$(prompt_input "your domain email" "")
-    webroot=$(prompt_input "web server root" "/var/www/html")
+    webroot=$(prompt_input "nginx server root" "/data/wwwroot")
+
+    mkdir -p $webroot/$domain
+
+    cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
+server {
+    listen 80;
+    server_name $domain;
+    root   /data/wwwroot/$domain;
+    location / {
+        index  index.html index.htm;
+    }
+}
+EOF
+    systemctl restart nginx
 
     curl https://get.acme.sh | sh -s email=$email
 
     # acme.sh 目录
     ACME_SH_DIR="$HOME/.acme.sh"
-    $ACME_SH_DIR/acme.sh --issue -d $domain -w $webroot --force
+    $ACME_SH_DIR/acme.sh --issue -d $domain -w --nginx
     # 安装证书
     mkdir -p /root/cert/$domain
     $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /root/cert/$domain/private.key --fullchain-file /root/cert/$domain/cert.crt
 
     #nginx config
-    mkdir -p /data/wwwroot/$domain
     cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
 server {
     listen 80;
@@ -721,24 +734,15 @@ server {
     listen 443 ssl;
     server_name $domain;
     root   /data/wwwroot/$domain;
-    
     access_log off;
     ssl_certificate /root/cert/$domain/cert.crt;
     ssl_certificate_key /root/cert/$domain/private.key;
-	
     location / {
         index  index.php index.html index.htm;
     }
-	
-    location ~ \.php$ {
-        include fastcgi_params;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-    }
 }
 EOF
-    systemctl reload nginx
+    systemctl restart nginx
 }
 
 
