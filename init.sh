@@ -718,7 +718,7 @@ EOF
 
     # acme.sh 目录
     ACME_SH_DIR="$HOME/.acme.sh"
-    $ACME_SH_DIR/acme.sh --issue -d $domain -w --nginx
+    $ACME_SH_DIR/acme.sh --issue -d $domain --nginx
     # 安装证书
     mkdir -p /root/cert/$domain
     $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /root/cert/$domain/private.key --fullchain-file /root/cert/$domain/cert.crt
