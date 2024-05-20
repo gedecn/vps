@@ -700,7 +700,7 @@ function ssl_install {
     email=$(prompt_input "your domain email" "")
     webroot=$(prompt_input "web server root" "/var/www/html")
 
-    #curl https://get.acme.sh | sh -s email=$email
+    curl https://get.acme.sh | sh -s email=$email
 
     # acme.sh 目录
     ACME_SH_DIR="$HOME/.acme.sh"
