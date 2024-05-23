@@ -185,7 +185,7 @@ function sb_config {
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
-    reality_server=$(prompt_input "reality server" "swcdn.apple.com")
+    reality_server=$(prompt_input "reality server" "")
 
     vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
     vmess_path=$(prompt_input "vmess ws path" "cf8443")
@@ -700,6 +700,8 @@ function ssl_install {
     email=$(prompt_input "your domain email" "")
     webroot=$(prompt_input "nginx server root" "/data/wwwroot")
 
+    nginx_install
+
     mkdir -p $webroot/$domain
 
     cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
@@ -739,6 +741,7 @@ server {
     ssl_certificate_key /root/cert/$domain/private.key;
     location / {
         index  index.php index.html index.htm;
+        proxy_pass  https://www.bing.com
     }
 }
 EOF
