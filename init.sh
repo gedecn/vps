@@ -741,7 +741,7 @@ server {
     ssl_certificate_key /root/cert/$domain/private.key;
     location / {
         index  index.php index.html index.htm;
-        proxy_pass  https://www.bing.com/TRANSLATOR
+        proxy_pass  https://signup.live.com/?lic=1;
     }
 }
 EOF
