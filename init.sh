@@ -919,6 +919,14 @@ EOF
 
 }
 
+function gost_install {
+    listen_port=$(prompt_input "listen port" 1443)
+    node_ip=$(prompt_input "node ip" "")
+    node_port=$(prompt_input "node port" 1443)
+    bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
+    nohup ./gost -L tcp://:$listen_port/$node_ip:$node_port > gost.log 2>&1 &
+}
+
 function main_menu {
 
     #标准输入
@@ -932,16 +940,16 @@ function main_menu {
     13)  开启BBR和网络优化
     14)  安装正式版sing-box
     15)  安装指定版本sing-box
-    16)  ipv6 warp 脚本
-    17)  swap 脚本
-    18)  vnstat 流量监控关机脚本
-    19)  ufw 定时开关防火墙
-    20)  noip 动态DDNS
+    16)  ipv6 warp脚本
+    17)  swap脚本
+    18)  vnstat流量监控关机脚本
+    19)  ufw定时开关防火墙
+    20)  noip动态DDNS
     21)  安装juicity
     22)  打印本地配置
-    23)  安装 Hysteria 2
-    24)  安装 X-UI
-    25)  安装 3X-UI
+    23)  安装Hysteria 2
+    24)  安装X-UI
+    25)  安装3X-UI
     26)  cloudflare 动态DDNS
     27)  DD系统
     28)  科技lion脚本
@@ -952,11 +960,12 @@ function main_menu {
     33)  备份到阿里云OSS
     34)  备份到阿里云盘
     35)  安装哪吒面板
-    36)  安装 S-UI
+    36)  安装S-UI
     37)  安装nginx
     38)  安装php8
     39)  安装mysql8
     40)  安装redis7
+    41)  安装gost
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -1068,6 +1077,9 @@ while [ 2 -gt 0 ]
           ;;
           40)
             redis_install
+          ;;
+          41)
+            gost_install
           ;;
           90)
             juicity_uninstall
