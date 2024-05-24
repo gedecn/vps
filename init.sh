@@ -921,12 +921,45 @@ EOF
 
 function gost_install {
     listen_port=$(prompt_input "listen port" 1443)
-    node_ip=$(prompt_input "node ip" "")
-    node_port=$(prompt_input "node port" 1443)
+    node_ip_port=$(prompt_input "node ip and port" "")
     bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
-    nohup gost -L tcp://:$listen_port/$node_ip:$node_port > gost.log 2>&1 &
-    #开机启动
-    cron_add "gost" "@reboot /usr/local/bin/gost -L tcp://:$listen_port/$node_ip:$node_port"
+
+    cat <<EOF > /root/gost_config.yml
+services:
+- name: service-0
+  addr: :$listen_port
+  handler:
+    type: tcp
+  listener:
+    type: tcp
+  forwarder:
+    nodes:
+    - name: target-0
+      addr: $node_ip_port
+log:
+  output: none
+  level: error
+EOF
+
+    cat <<EOF > /etc/systemd/system/gost.service
+[Unit]
+Description=GO Simple Tunnel
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gost -C /root/gost_config.yml
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable gost
+    systemctl start gost
+    systemctl status gost
 }
 
 function main_menu {
