@@ -925,6 +925,8 @@ function gost_install {
     node_port=$(prompt_input "node port" 1443)
     bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
     nohup gost -L tcp://:$listen_port/$node_ip:$node_port > gost.log 2>&1 &
+    #开机启动
+    cron_add "gost" "@reboot /usr/local/bin/gost -L tcp://:$listen_port/$node_ip:$node_port"
 }
 
 function main_menu {
