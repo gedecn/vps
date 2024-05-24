@@ -924,7 +924,7 @@ function gost_install {
     node_ip=$(prompt_input "node ip" "")
     node_port=$(prompt_input "node port" 1443)
     bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
-    nohup ./gost -L tcp://:$listen_port/$node_ip:$node_port > gost.log 2>&1 &
+    nohup gost -L tcp://:$listen_port/$node_ip:$node_port > gost.log 2>&1 &
 }
 
 function main_menu {
