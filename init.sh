@@ -700,7 +700,7 @@ function ssl_install {
     webroot=$(prompt_input "nginx server root" "/data/wwwroot")
 
     sudo apt-get update
-    sudo apt-get install socat
+    sudo apt-get install -y socat
 
     systemctl stop nginx
 
@@ -733,6 +733,7 @@ server {
     }
 }
 EOF
+    nginx_install
 
 }
 
