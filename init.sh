@@ -721,6 +721,7 @@ EOF
 
     # acme.sh 目录
     ACME_SH_DIR="$HOME/.acme.sh"
+    $ACME_SH_DIR/acme.sh --set-default-ca --server letsencrypt
     $ACME_SH_DIR/acme.sh --issue -d $domain --webroot $webroot/$domain
     # 安装证书
     mkdir -p /etc/cert/$domain
