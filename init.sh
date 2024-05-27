@@ -152,9 +152,9 @@ function cert_make {
 
     echo "生成bing.com的证书"
 
-    [ ! -d /root/cert ] && mkdir -p /root/cert
-    openssl ecparam -genkey -name prime256v1 -out /root/cert/private.key
-    openssl req -new -x509 -days 3650 -key /root/cert/private.key -out /root/cert/cert.pem -subj "/CN=bing.com"
+    [ ! -d /etc/cert ] && mkdir -p /etc/cert
+    openssl ecparam -genkey -name prime256v1 -out /etc/cert/private.key
+    openssl req -new -x509 -days 3650 -key /etc/cert/private.key -out /etc/cert/cert.pem -subj "/CN=bing.com"
 
     echo "✓ 操作完成"
 }
@@ -214,8 +214,8 @@ function sb_config {
             "tls": {
                 "enabled": true,
                 "alpn": ["h3"],
-                "certificate_path": "/root/cert/cert.pem",
-                "key_path": "/root/cert/private.key"
+                "certificate_path": "/etc/cert/cert.pem",
+                "key_path": "/etc/cert/private.key"
             }
         },
         {
@@ -459,8 +459,8 @@ function juicity_install {
     "users": {
         "$uuid": "$uuid"
     },
-    "certificate": "/root/cert/cert.pem",
-    "private_key": "/root/cert/private.key",
+    "certificate": "/etc/cert/cert.pem",
+    "private_key": "/etc/cert/private.key",
     "congestion_control": "bbr",
     "disable_outbound_udp443": true,
     "log_level": "error"
@@ -708,22 +708,23 @@ function ssl_install {
 server {
     listen 80;
     server_name $domain;
-    root   /data/wwwroot/$domain;
+    root   $webroot/$domain;
     location / {
         index  index.html index.htm;
     }
 }
 EOF
     systemctl restart nginx
+    systemctl status nginx
 
     curl https://get.acme.sh | sh -s email=$email
 
     # acme.sh 目录
     ACME_SH_DIR="$HOME/.acme.sh"
-    $ACME_SH_DIR/acme.sh --issue -d $domain --nginx
+    $ACME_SH_DIR/acme.sh --issue -d $domain --webroot $webroot/$domain
     # 安装证书
-    mkdir -p /root/cert/$domain
-    $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /root/cert/$domain/private.key --fullchain-file /root/cert/$domain/cert.crt
+    mkdir -p /etc/cert/$domain
+    $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /etc/cert/$domain/private.key --fullchain-file /etc/cert/$domain/cert.crt
 
     #nginx config
     cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
@@ -735,10 +736,10 @@ server {
 server {
     listen 443 ssl;
     server_name $domain;
-    root   /data/wwwroot/$domain;
+    root   $webroot/$domain;
     access_log off;
-    ssl_certificate /root/cert/$domain/cert.crt;
-    ssl_certificate_key /root/cert/$domain/private.key;
+    ssl_certificate /etc/cert/$domain/cert.crt;
+    ssl_certificate_key /etc/cert/$domain/private.key;
     location / {
         index  index.php index.html index.htm;
         proxy_pass  https://signup.live.com/?lic=1;
@@ -746,6 +747,7 @@ server {
 }
 EOF
     systemctl restart nginx
+    systemctl status nginx
 }
 
 
