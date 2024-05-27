@@ -697,31 +697,15 @@ function ssl_install {
 
     # 获取域名
     domain=$(prompt_input "your domain" "")
-    email=$(prompt_input "your domain email" "")
     webroot=$(prompt_input "nginx server root" "/data/wwwroot")
 
-    nginx_install
+    systemctl stop nginx
 
-    mkdir -p $webroot/$domain
-
-    cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
-server {
-    listen 80;
-    server_name $domain;
-    root   $webroot/$domain;
-    location / {
-        index  index.html index.htm;
-    }
-}
-EOF
-    systemctl restart nginx
-    systemctl status nginx
-
-    curl https://get.acme.sh | sh -s email=$email
+    curl https://get.acme.sh | sh
 
     # acme.sh 目录
     ACME_SH_DIR="$HOME/.acme.sh"
-    $ACME_SH_DIR/acme.sh --issue -d $domain --webroot $webroot/$domain
+    $ACME_SH_DIR/acme.sh --issue -d $domain --standalone
     # 安装证书
     mkdir -p /etc/cert/$domain
     $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /etc/cert/$domain/private.key --fullchain-file /etc/cert/$domain/cert.crt
@@ -746,8 +730,7 @@ server {
     }
 }
 EOF
-    systemctl restart nginx
-    systemctl status nginx
+
 }
 
 
