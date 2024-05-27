@@ -701,13 +701,13 @@ function ssl_install {
 
     sudo apt-get update
     sudo apt-get install socat
-    
+
     systemctl stop nginx
 
     curl https://get.acme.sh | sh
 
     # acme.sh 目录
-    ACME_SH_DIR="$HOME/.acme.sh"
+    ACME_SH_DIR="/root/.acme.sh"
     $ACME_SH_DIR/acme.sh --issue -d $domain --standalone
     # 安装证书
     mkdir -p /etc/cert/$domain
