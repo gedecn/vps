@@ -699,6 +699,9 @@ function ssl_install {
     domain=$(prompt_input "your domain" "")
     webroot=$(prompt_input "nginx server root" "/data/wwwroot")
 
+    sudo apt-get update
+    sudo apt-get install socat
+    
     systemctl stop nginx
 
     curl https://get.acme.sh | sh
