@@ -872,7 +872,7 @@ function aliyun_backup {
     #北京时间凌晨5点
     cron_add "aliyunpan upload" "$cronttime * * * /bin/bash -c 'aliyunpan upload $backuppath /backup/\$(date +\%Y\%m\%d)'"
     #所有备份保留7天
-    cron_add "aliyunpan rm" "0 20 * * * /bin/bash -c 'aliyunpan rm /backup/\$(date --date="7 days ago" +\%Y\%m\%d)'"
+    cron_add "aliyunpan rm" "0 20 * * * /bin/bash -c 'aliyunpan rm /backup/\$(date --date=\"7 days ago\" +\%Y\%m\%d)'"
 }
 
 function realm_install {
