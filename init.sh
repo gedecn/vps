@@ -700,9 +700,10 @@ function ssl_install {
     email=$(prompt_input "your domain email" "")
     webroot=$(prompt_input "nginx server root" "/data/wwwroot")
 
-    nginx_install
+    #nginx_install
 
     mkdir -p $webroot/$domain
+    mv /etc/nginx/sites-enabled/$domain.conf /etc/nginx/sites-enabled/$domain.conf.bak
 
     cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
 server {
@@ -714,8 +715,8 @@ server {
     }
 }
 EOF
-    systemctl restart nginx
-    systemctl status nginx
+    systemctl reload nginx
+    #systemctl status nginx
 
     curl https://get.acme.sh | sh -s email=$email
 
@@ -747,8 +748,7 @@ server {
     }
 }
 EOF
-    systemctl restart nginx
-    systemctl status nginx
+    systemctl reload nginx
 }
 
 
