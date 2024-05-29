@@ -633,13 +633,13 @@ function php_install {
 
     #配置文件 /etc/php/8.2/fpm/pool.d/www.conf
     #/run/php/php8.2-fpm.sock
-    sudo apt install -y php php-fpm
+    sudo apt install -y php php8.2-fpm
 
     # 安装PHP和PHP的扩展
     sudo apt install -y php-redis php-mbstring php-mysql php-gd php-curl php-xml
 
-    sudo systemctl start php-fpm
-    sudo systemctl enable php-fpm
+    sudo systemctl start php8.2-fpm
+    sudo systemctl enable php8.2-fpm
 }
 
 
