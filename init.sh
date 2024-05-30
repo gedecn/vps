@@ -78,7 +78,6 @@ function ssh_security {
     echo "root:$newpw" | chpasswd
 
     cat <<EOF > /etc/ssh/sshd_config
-Include /etc/ssh/sshd_config.d/*.conf
 Port $newport
 SyslogFacility AUTH
 LogLevel INFO
