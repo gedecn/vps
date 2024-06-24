@@ -179,19 +179,20 @@ function sb_config {
     [ ! -d /etc/sing-box ] && mkdir -p /etc/sing-box
 
     # User inputs
-    socks_port=$(prompt_input "socks5 port" 1444)
     hysteria2_port=$(prompt_input "hysteria2 udp port" 1443)
     vless_port=$(prompt_input "vless tcp port" 1443)
+    socks_port=$(prompt_input "socks5 port" 1444)
+
+    tuic_port=$(prompt_input "tuic udp port" 8443)
+    vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
+    
+    ss_port=$(prompt_input "shadowsocks port" 10443)
 
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "")
-
-    vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
     vmess_path=$(prompt_input "vmess ws path" "cf8443")
-
-    ss_port=$(prompt_input "shadowsocks port" 10443)
 
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
@@ -212,6 +213,24 @@ function sb_config {
                     "password": "$uuid"
                 }
             ]
+        },
+        {
+            "type": "tuic",
+            "listen": "::",
+            "listen_port": $tuic_port,
+            "users": [
+                {
+                    "uuid": "$uuid",
+                    "password": "$uuid"
+                }
+            ],
+            "congestion_control": "bbr",
+            "tls": {
+                "enabled": true,
+                "alpn": ["h3"],
+                "certificate_path": "/etc/cert/cert.pem",
+                "key_path": "/etc/cert/private.key"
+            }
         },
         {
             "type": "hysteria2",
