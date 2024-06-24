@@ -179,6 +179,7 @@ function sb_config {
     [ ! -d /etc/sing-box ] && mkdir -p /etc/sing-box
 
     # User inputs
+    socks_port=$(prompt_input "socks5 port" 1444)
     hysteria2_port=$(prompt_input "hysteria2 udp port" 1443)
     vless_port=$(prompt_input "vless tcp port" 1443)
 
@@ -201,6 +202,17 @@ function sb_config {
         "timestamp": true
     },
     "inbounds": [
+        {
+            "type": "socks",
+            "listen": "::",
+            "listen_port": $socks_port,
+            "users": [
+                {
+                    "username": "$uuid",
+                    "password": "$uuid"
+                }
+            ]
+        },
         {
             "type": "hysteria2",
             "listen": "::",
