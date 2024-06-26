@@ -189,8 +189,6 @@ function sb_config {
     ss_port=$(prompt_input "shadowsocks port" 10443)
 
     uuid=$(prompt_input "uuid" "")
-    uuid_base64=$(sing-box generate rand 16 --base64)
-
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "")
@@ -294,8 +292,8 @@ function sb_config {
             "type": "shadowsocks",
             "listen": "::",
             "listen_port": $ss_port,
-            "method": "2022-blake3-aes-128-gcm",
-            "password": "$uuid_base64"
+            "method": "aes-256-gcm",
+            "password": "$uuid"
         }
     ],
     "outbounds": [
@@ -311,7 +309,7 @@ EOF
     systemctl restart sing-box
     systemctl status sing-box
 
-    echo "shadowsocks-2022-blake3-chacha20-poly1305 password: $uuid_base64"
+    echo "✓ 操作完成"
 }
 
 # Function to download and install sing-box
