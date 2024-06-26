@@ -189,6 +189,8 @@ function sb_config {
     ss_port=$(prompt_input "shadowsocks port" 10443)
 
     uuid=$(prompt_input "uuid" "")
+    uuid_base64=$(echo -n "$uuid" | openssl base64)
+
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "")
@@ -292,8 +294,9 @@ function sb_config {
             "type": "shadowsocks",
             "listen": "::",
             "listen_port": $ss_port,
-            "method": "aes-256-gcm",
-            "password": "$uuid"
+            "method": "2022-blake3-chacha20-poly1305",
+            "password": "$uuid_base64",
+            "network": "tcp"
         }
     ],
     "outbounds": [
