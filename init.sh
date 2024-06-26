@@ -295,8 +295,7 @@ function sb_config {
             "listen": "::",
             "listen_port": $ss_port,
             "method": "2022-blake3-aes-128-gcm",
-            "password": "$uuid_base64",
-            "network": "tcp"
+            "password": "$uuid_base64"
         }
     ],
     "outbounds": [
