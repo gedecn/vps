@@ -187,6 +187,8 @@ function sb_config {
     vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
     
     ss_port=$(prompt_input "shadowsocks port" 10443)
+    ss_method=$(prompt_input "shadowsocks method" "2022-blake3-aes-256-gcm")
+    ss_password=$(prompt_input "shadowsocks password" "")
 
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
@@ -292,8 +294,8 @@ function sb_config {
             "type": "shadowsocks",
             "listen": "::",
             "listen_port": $ss_port,
-            "method": "aes-256-gcm",
-            "password": "$uuid"
+            "method": "$ss_method",
+            "password": "$ss_password"
         }
     ],
     "outbounds": [
