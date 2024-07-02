@@ -43,7 +43,7 @@ prompt_input() {
     while [[ -z "$value" ]]; do
 
         # 打印提示信息并读取用户输入
-        read -p "$prompt [$default][$result]: " value
+        read -r -p "$prompt [$default][$result]: " value
 
         value=${value:-$result}
         value=${value:-$default}
