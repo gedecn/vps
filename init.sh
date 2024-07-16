@@ -652,9 +652,28 @@ function hostname_change {
 
 function nginx_install {
 
+    # 更新系统包索引
     sudo apt update
+
+    # 安装必要的软件包
+    sudo apt install -y curl gnupg2 ca-certificates lsb-release
+
+    # 导入 Nginx 官方签名密钥
+    curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
+
+    # 添加 Nginx 官方存储库
+    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian `lsb_release -cs` nginx" | sudo tee /etc/apt/sources.list.d/nginx.list
+
+    # 设置 APT 优先级，以确保安装的是官方存储库中的版本
+    echo -e "Package: *\nPin: origin nginx.org\nPin-Priority: 1000" | sudo tee /etc/apt/preferences.d/99nginx
+
+    # 更新系统包索引
+    sudo apt update
+
+    # 安装最新版本的 Nginx
     sudo apt install -y nginx
 
+    # 启动并启用 Nginx 服务
     sudo systemctl start nginx
     sudo systemctl enable nginx
 }
