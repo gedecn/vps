@@ -652,7 +652,8 @@ function hostname_change {
 
 function nginx_install {
 
-    sitedomain=$(prompt_input "site domain" "")
+    domain=$(prompt_input "your domain" "")
+    webroot=$(prompt_input "nginx server root" "/data/wwwroot")
 
     # 更新系统包索引
     sudo apt update
@@ -689,17 +690,15 @@ function nginx_install {
     echo "Nginx user 修改完成。"
 
     # 定义文件路径和内容
-    mkdir -p /data/wwwroot/$sitedomain
-
-    CONF_DIR="/etc/nginx/conf.d"
-    CONF_FILE="$CONF_DIR/$sitedomain.conf"
-    CONTENT=$(cat <<EOF
+    mkdir -p $webroot/$domain
+    cat <<EOF > /etc/nginx/conf.d/$domain.conf
 server {
     listen 80;
-    server_name $sitedomain;
-    access_log off;
-    index index.html index.htm index.php;
-    root /data/wwwroot/$sitedomain;
+    server_name $domain;
+    root   $webroot/$domain;
+    location / {
+        index  index.html index.htm;
+    }
     location ~ [^/]\.php(/|$) {
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
         fastcgi_index index.php;
@@ -708,16 +707,6 @@ server {
     }
 }
 EOF
-    )
-
-    # 确保目录存在
-    sudo mkdir -p $CONF_DIR
-
-    # 写入内容到文件
-    echo "$CONTENT" | sudo tee $CONF_FILE > /dev/null
-
-    # 输出操作结果
-    echo "文件 $CONF_FILE 创建成功，并写入内容."
 
     # 启动并启用 Nginx 服务
     sudo systemctl start nginx
