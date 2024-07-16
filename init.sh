@@ -652,6 +652,8 @@ function hostname_change {
 
 function nginx_install {
 
+    sitedomain=$(prompt_input "site domain" "")
+
     # 更新系统包索引
     sudo apt update
 
@@ -672,6 +674,57 @@ function nginx_install {
 
     # 安装最新版本的 Nginx
     sudo apt install -y nginx
+
+    # 定义要替换的旧用户名和新用户名
+    OLD_USER="user nginx;"
+    NEW_USER="user www-data;"
+
+    # Nginx 配置文件路径
+    NGINX_CONF="/etc/nginx/nginx.conf"
+
+    # 使用 sed 命令进行替换
+    sudo sed -i "s/$OLD_USER/$NEW_USER/" $NGINX_CONF
+
+    # 输出操作结果
+    echo "Nginx user 修改完成。"
+
+    # 定义文件路径和内容
+    mkdir -p /data/wwwroot/$sitedomain
+
+    CONF_DIR="/etc/nginx/conf.d"
+    CONF_FILE="$CONF_DIR/$sitedomain.conf"
+    CONTENT=$(cat <<EOF
+server {
+    listen 80;
+    server_name $sitedomain;
+    access_log off;
+    index index.html index.htm index.php;
+    
+    rewrite ^/f/(.+)$ /index.php?rewrite=mod/forum/fid/\$1 last;
+    rewrite ^/t/(.+)$ /index.php?rewrite=mod/thread/tid/\$1 last;
+    rewrite ^/u/(.+)$ /index.php?rewrite=mod/space/uid/\$1 last;
+    rewrite ^/m/(.+)$ /index.php?rewrite=mod/\$1 last;
+
+    root /data/wwwroot/$sitedomain;
+
+    location ~ [^/]\.php(/|$) {
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
+EOF
+    )
+
+    # 确保目录存在
+    sudo mkdir -p $CONF_DIR
+
+    # 写入内容到文件
+    echo "$CONTENT" | sudo tee $CONF_FILE > /dev/null
+
+    # 输出操作结果
+    echo "文件 $CONF_FILE 创建成功，并写入内容."
 
     # 启动并启用 Nginx 服务
     sudo systemctl start nginx
