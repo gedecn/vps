@@ -699,14 +699,7 @@ server {
     server_name $sitedomain;
     access_log off;
     index index.html index.htm index.php;
-    
-    rewrite ^/f/(.+)$ /index.php?rewrite=mod/forum/fid/\$1 last;
-    rewrite ^/t/(.+)$ /index.php?rewrite=mod/thread/tid/\$1 last;
-    rewrite ^/u/(.+)$ /index.php?rewrite=mod/space/uid/\$1 last;
-    rewrite ^/m/(.+)$ /index.php?rewrite=mod/\$1 last;
-
     root /data/wwwroot/$sitedomain;
-
     location ~ [^/]\.php(/|$) {
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
         fastcgi_index index.php;
@@ -808,9 +801,9 @@ function ssl_install {
     #nginx_install
 
     mkdir -p $webroot/$domain
-    mv /etc/nginx/sites-enabled/$domain.conf /etc/nginx/sites-enabled/$domain.conf.bak
+    mv /etc/nginx/conf.d/$domain.conf /etc/nginx/conf.d/$domain.conf.bak
 
-    cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
+    cat <<EOF > /etc/nginx/conf.d/$domain.conf
 server {
     listen 80;
     server_name $domain;
@@ -834,7 +827,7 @@ EOF
     $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /etc/cert/$domain/private.key --fullchain-file /etc/cert/$domain/cert.crt
 
     #nginx config
-    cat <<EOF > /etc/nginx/sites-enabled/$domain.conf
+    cat <<EOF > /etc/nginx/conf.d/$domain.conf
 server {
     listen 80;
     server_name $domain;
@@ -847,12 +840,24 @@ server {
     access_log off;
     ssl_certificate /etc/cert/$domain/cert.crt;
     ssl_certificate_key /etc/cert/$domain/private.key;
+
+    rewrite ^/f/(.+)$ /index.php?rewrite=mod/forum/fid/\$1 last;
+    rewrite ^/t/(.+)$ /index.php?rewrite=mod/thread/tid/\$1 last;
+    rewrite ^/u/(.+)$ /index.php?rewrite=mod/space/uid/\$1 last;
+    rewrite ^/m/(.+)$ /index.php?rewrite=mod/\$1 last;
+
     location / {
         index  index.php index.html index.htm;
-        proxy_pass  https://signup.live.com/?lic=1;
     }
+    location ~ [^/]\.php(/|$) {
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }    
 }
 EOF
+
     systemctl reload nginx
 }
 
