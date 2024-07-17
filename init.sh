@@ -736,11 +736,12 @@ function create_nginx_site_config {
     local ssl_key=$4
 
     mkdir -p $webroot/$domain
+    rm /etc/nginx/conf.d/default.conf
 
     cat <<EOF > /etc/nginx/conf.d/$domain.conf
 server {
-    listen 80;
-    server_name $domain;
+    listen 80 default_server;
+    server_name _;
     root   $webroot/$domain;
     location / {
         index  index.html index.htm;
@@ -748,7 +749,7 @@ server {
     location ~ [^/]\.php(/|$) {
         fastcgi_pass unix:/run/php/php8.2-fpm.sock;
         fastcgi_index index.php;
-        fastcgi_param  SCRIPT_FILENAME    $document_root$fastcgi_script_name;
+        fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
         include fastcgi_params;
     }
 }
