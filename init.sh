@@ -659,12 +659,74 @@ function update_and_install {
 
 # 替换Nginx配置文件中的用户的函数
 function replace_nginx_user {
-    OLD_USER="user nginx;"
-    NEW_USER="user www-data;"
+
     NGINX_CONF="/etc/nginx/nginx.conf"
-    sudo sed -i "s/$OLD_USER/$NEW_USER/" $NGINX_CONF
-    echo "Nginx user 修改完成。"
+
+    # 备份原始配置文件
+    sudo cp $NGINX_CONF $NGINX_CONF.bak
+
+    # 写入新的配置内容
+    sudo bash -c "cat > $NGINX_CONF << 'EOF'
+user www-data;
+worker_processes auto;
+
+error_log /var/log/nginx/error.log notice;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+    # Use multi_accept to accept as many connections as possible
+    multi_accept on;
+    # Use epoll (Linux 2.6+), if your platform supports it
+    use epoll;
 }
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                    '\$status \$body_bytes_sent "\$http_referer" '
+                    '"\$http_user_agent" "\$http_x_forwarded_for"';
+
+    access_log off;
+
+    sendfile on;
+    tcp_nopush on; # Enable to send files in one piece, without partial frames
+    tcp_nodelay on; # Enable to send responses at once, without waiting for more data
+
+    keepalive_timeout 65;
+    keepalive_requests 100; # Limit the number of requests that can be sent over a single keepalive connection
+
+    gzip on;
+    gzip_disable "msie6";
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_buffers 16 8k;
+    gzip_http_version 1.1;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    include /etc/nginx/conf.d/*.conf;
+
+    # Increase client body size to allow for large file uploads
+    client_max_body_size 10M;
+
+    # Buffer sizes
+    client_body_buffer_size 128k;
+    client_header_buffer_size 1k;
+    large_client_header_buffers 4 32k;
+
+    # Timeouts
+    client_body_timeout 12;
+    client_header_timeout 12;
+    send_timeout 10;
+}
+EOF"
+# 检查 Nginx 配置文件是否有语法错误
+sudo nginx -t
+}
+
 
 # 创建nginx站点配置文件的函数
 function create_nginx_site_config {
@@ -684,7 +746,10 @@ server {
         index  index.html index.htm;
     }
     location ~ [^/]\.php(/|$) {
-        return 301 https://$domain\$request_uri;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_param  SCRIPT_FILENAME    $document_root$fastcgi_script_name;
+        include fastcgi_params;
     }
 }
 EOF
