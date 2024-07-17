@@ -650,47 +650,31 @@ function hostname_change {
     echo "✓ 操作完成"
 }
 
-function nginx_install {
 
-    domain=$(prompt_input "your domain" "")
-    webroot=$(prompt_input "nginx server root" "/data/wwwroot")
-
-    # 更新系统包索引
+# 更新系统包索引和安装包的函数
+function update_and_install {
     sudo apt update
+    sudo apt install -y "$@"
+}
 
-    # 安装必要的软件包
-    sudo apt install -y curl gnupg2 ca-certificates lsb-release
-
-    # 导入 Nginx 官方签名密钥
-    curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
-
-    # 添加 Nginx 官方存储库
-    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian `lsb_release -cs` nginx" | sudo tee /etc/apt/sources.list.d/nginx.list
-
-    # 设置 APT 优先级，以确保安装的是官方存储库中的版本
-    echo -e "Package: *\nPin: origin nginx.org\nPin-Priority: 1000" | sudo tee /etc/apt/preferences.d/99nginx
-
-    # 更新系统包索引
-    sudo apt update
-
-    # 安装最新版本的 Nginx
-    sudo apt install -y nginx
-
-    # 定义要替换的旧用户名和新用户名
+# 替换Nginx配置文件中的用户的函数
+function replace_nginx_user {
     OLD_USER="user nginx;"
     NEW_USER="user www-data;"
-
-    # Nginx 配置文件路径
     NGINX_CONF="/etc/nginx/nginx.conf"
-
-    # 使用 sed 命令进行替换
     sudo sed -i "s/$OLD_USER/$NEW_USER/" $NGINX_CONF
-
-    # 输出操作结果
     echo "Nginx user 修改完成。"
+}
 
-    # 定义文件路径和内容
+# 创建nginx站点配置文件的函数
+function create_nginx_site_config {
+    local domain=$1
+    local webroot=$2
+    local ssl_cert=$3
+    local ssl_key=$4
+
     mkdir -p $webroot/$domain
+
     cat <<EOF > /etc/nginx/conf.d/$domain.conf
 server {
     listen 80;
@@ -700,135 +684,20 @@ server {
         index  index.html index.htm;
     }
     location ~ [^/]\.php(/|$) {
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
+        return 301 https://$domain\$request_uri;
     }
 }
 EOF
 
-    # 启动并启用 Nginx 服务
-    sudo systemctl start nginx
-    sudo systemctl enable nginx
-}
-
-
-function php_install {
-
-    sudo apt update
-
-    #配置文件 /etc/php/8.2/fpm/pool.d/www.conf
-    #/run/php/php8.2-fpm.sock
-    sudo apt install -y php php8.2-fpm
-
-    # 安装PHP和PHP的扩展
-    sudo apt install -y php-redis php-mbstring php-mysql php-gd php-curl php-xml
-
-    sudo systemctl start php8.2-fpm
-    sudo systemctl enable php8.2-fpm
-}
-
-
-function mysql_install {
-
-    sudo apt update
- 
-    # 安装wget和GnuPG，这些是下载和验证MySQL APT配置包所必需的
-    sudo apt install -y gnupg
-
-    # 下载MySQL APT配置包
-    wget https://dev.mysql.com/get/mysql-apt-config_0.8.29-1_all.deb
-
-    # 安装MySQL APT配置包
-    sudo dpkg -i mysql-apt-config_0.8.29-1_all.deb
-
-    # 如果在安装过程中遇到任何问题，可以尝试使用以下命令修复依赖关系
-    sudo apt -f install
-
-    # 再次更新包列表以确保可以访问MySQL仓库
-    sudo apt update
-
-    # 安装MySQL服务器
-    sudo apt install -y mysql-server
-
-    # 启动MySQL服务
-    sudo systemctl start mysql
-
-    # 设置MySQL服务开机自启
-    sudo systemctl enable mysql
-
-    # 运行安全脚本来提高MySQL安全性
-    sudo mysql_secure_installation
-}
-
-
-function redis_install {
-
-    sudo apt update
-
-    # 安装Redis服务器
-    sudo apt install -y redis-server
-
-    # 启动Redis服务
-    sudo systemctl start redis-server
-
-    # 设置Redis服务开机自启
-    sudo systemctl enable redis-server
-
-    redis-server --version
-}
-
-
-function ssl_install {
-
-    # 获取域名
-    domain=$(prompt_input "your domain" "")
-    email=$(prompt_input "your domain email" "")
-    webroot=$(prompt_input "nginx server root" "/data/wwwroot")
-
-    #nginx_install
-
-    mkdir -p $webroot/$domain
-    mv /etc/nginx/conf.d/$domain.conf /etc/nginx/conf.d/$domain.conf.bak
-
-    cat <<EOF > /etc/nginx/conf.d/$domain.conf
-server {
-    listen 80;
-    server_name $domain;
-    root   $webroot/$domain;
-    location / {
-        index  index.html index.htm;
-    }
-}
-EOF
-    systemctl reload nginx
-    #systemctl status nginx
-
-    curl https://get.acme.sh | sh -s email=$email
-
-    # acme.sh 目录
-    ACME_SH_DIR="$HOME/.acme.sh"
-    $ACME_SH_DIR/acme.sh --set-default-ca --server letsencrypt
-    $ACME_SH_DIR/acme.sh --issue -d $domain --webroot $webroot/$domain
-    # 安装证书
-    mkdir -p /etc/cert/$domain
-    $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /etc/cert/$domain/private.key --fullchain-file /etc/cert/$domain/cert.crt
-
-    #nginx config
-    cat <<EOF > /etc/nginx/conf.d/$domain.conf
-server {
-    listen 80;
-    server_name $domain;
-    return 301 https://$domain\$request_uri;
-}
+    if [[ -n $ssl_cert && -n $ssl_key ]]; then
+        cat <<EOF >> /etc/nginx/conf.d/$domain.conf
 server {
     listen 443 ssl;
     server_name $domain;
     root   $webroot/$domain;
     access_log off;
-    ssl_certificate /etc/cert/$domain/cert.crt;
-    ssl_certificate_key /etc/cert/$domain/private.key;
+    ssl_certificate $ssl_cert;
+    ssl_certificate_key $ssl_key;
 
     rewrite ^/f/(.+)$ /index.php?rewrite=mod/forum/fid/\$1 last;
     rewrite ^/t/(.+)$ /index.php?rewrite=mod/thread/tid/\$1 last;
@@ -843,13 +712,84 @@ server {
         fastcgi_index index.php;
         fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
         include fastcgi_params;
-    }    
+    }  
 }
 EOF
-
-    systemctl reload nginx
+    fi
 }
 
+# Nginx安装和配置
+function nginx_install {
+    domain=$(prompt_input "your domain" "")
+    webroot=$(prompt_input "nginx server root" "/data/wwwroot")
+
+    update_and_install curl gnupg2 ca-certificates lsb-release
+    curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
+
+    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian $(lsb_release -cs) nginx" | sudo tee /etc/apt/sources.list.d/nginx.list
+    echo -e "Package: *\nPin: origin nginx.org\nPin-Priority: 1000" | sudo tee /etc/apt/preferences.d/99nginx
+
+    update_and_install nginx
+
+    replace_nginx_user
+    create_nginx_site_config $domain $webroot
+
+    sudo systemctl start nginx
+    sudo systemctl enable nginx
+}
+
+# PHP安装和配置
+function php_install {
+    update_and_install php php8.2-fpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
+
+    sudo systemctl start php8.2-fpm
+    sudo systemctl enable php8.2-fpm
+}
+
+# MySQL安装和配置
+function mysql_install {
+    update_and_install gnupg
+    wget https://dev.mysql.com/get/mysql-apt-config_0.8.29-1_all.deb
+    sudo dpkg -i mysql-apt-config_0.8.29-1_all.deb
+    sudo apt -f install
+    update_and_install mysql-server
+
+    sudo systemctl start mysql
+    sudo systemctl enable mysql
+    sudo mysql_secure_installation
+}
+
+# Redis安装和配置
+function redis_install {
+    update_and_install redis-server
+
+    sudo systemctl start redis-server
+    sudo systemctl enable redis-server
+
+    redis-server --version
+}
+
+# SSL证书安装和配置
+function ssl_install {
+    domain=$(prompt_input "your domain" "")
+    email=$(prompt_input "your domain email" "")
+    webroot=$(prompt_input "nginx server root" "/data/wwwroot")
+
+    create_nginx_site_config $domain $webroot
+    sudo systemctl reload nginx
+
+    curl https://get.acme.sh | sh -s email=$email
+    ACME_SH_DIR="$HOME/.acme.sh"
+    $ACME_SH_DIR/acme.sh --set-default-ca --server letsencrypt
+    $ACME_SH_DIR/acme.sh --issue -d $domain --webroot $webroot/$domain
+
+    mkdir -p /etc/cert/$domain
+    $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /etc/cert/$domain/private.key --fullchain-file /etc/cert/$domain/cert.crt
+
+    create_nginx_site_config $domain $webroot /etc/cert/$domain/cert.crt /etc/cert/$domain/private.key
+
+    sudo systemctl reload nginx
+}
 
 function db_backup {
 
