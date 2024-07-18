@@ -748,7 +748,7 @@ server {
     server_name _;
     root   $webroot/$domain;
     location / {
-        index  index.html index.htm;
+        index  index.php index.html index.htm;
     }
     location ~ [^/]\.php(/|$) {
         fastcgi_pass unix:/run/php/$phpfpm.sock;
