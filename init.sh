@@ -737,6 +737,8 @@ function create_nginx_site_config {
     local ssl_cert=$3
     local ssl_key=$4
 
+    phpfpm=$(prompt_input "php-fpm version" "php8.2-fpm")
+
     mkdir -p $webroot/$domain
     rm /etc/nginx/conf.d/default.conf
 
@@ -749,7 +751,7 @@ server {
         index  index.html index.htm;
     }
     location ~ [^/]\.php(/|$) {
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:/run/php/$phpfpm.sock;
         fastcgi_index index.php;
         fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
         include fastcgi_params;
@@ -776,11 +778,11 @@ server {
         index  index.php index.html index.htm;
     }
     location ~ [^/]\.php(/|$) {
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:/run/php/$phpfpm.sock;
         fastcgi_index index.php;
         fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
         include fastcgi_params;
-    }  
+    }
 }
 EOF
     fi
@@ -808,10 +810,12 @@ function nginx_install {
 
 # PHP安装和配置
 function php_install {
-    update_and_install php php8.2-fpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
+    phpfpm=$(prompt_input "php-fpm version" "php8.2-fpm")
 
-    sudo systemctl start php8.2-fpm
-    sudo systemctl enable php8.2-fpm
+    update_and_install php $phpfpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
+
+    sudo systemctl start $phpfpm
+    sudo systemctl enable $phpfpm
 }
 
 # MySQL安装和配置
