@@ -804,7 +804,7 @@ function nginx_install {
     replace_nginx_user
     create_nginx_site_config $domain $webroot
 
-    sudo systemctl start nginx
+    sudo systemctl restart nginx
     sudo systemctl enable nginx
 }
 
@@ -814,7 +814,7 @@ function php_install {
 
     update_and_install php $phpfpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
 
-    sudo systemctl start $phpfpm
+    sudo systemctl restart $phpfpm
     sudo systemctl enable $phpfpm
 }
 
@@ -869,7 +869,7 @@ max_allowed_packet = 64M            # 增加最大允许的包大小
 open_files_limit = 65535            # 增加打开文件的限制
 EOF
 
-    sudo systemctl start mysql
+    sudo systemctl restart mysql
     sudo systemctl enable mysql
     sudo mysql_secure_installation
 }
@@ -878,7 +878,7 @@ EOF
 function redis_install {
     update_and_install redis-server
 
-    sudo systemctl start redis-server
+    sudo systemctl restart redis-server
     sudo systemctl enable redis-server
 
     redis-server --version
