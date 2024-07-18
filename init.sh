@@ -666,11 +666,11 @@ function replace_nginx_user {
     sudo cp $NGINX_CONF $NGINX_CONF.bak
 
     # 写入新的配置内容
-    sudo bash -c "cat > $NGINX_CONF << 'EOF'
+    cat << EOF | sudo tee $NGINX_CONF > /dev/null
 user www-data;
 worker_processes auto;
 
-error_log /var/log/nginx/error.log notice;
+error_log /var/log/nginx/error.log crit;
 pid /var/run/nginx.pid;
 
 events {
@@ -690,6 +690,7 @@ http {
                     '"\$http_user_agent" "\$http_x_forwarded_for"';
 
     access_log off;
+    error_log /dev/null crit;
 
     sendfile on;
     tcp_nopush on; # Enable to send files in one piece, without partial frames
@@ -722,7 +723,8 @@ http {
     client_header_timeout 12;
     send_timeout 10;
 }
-EOF"
+EOF
+
 # 检查 Nginx 配置文件是否有语法错误
 sudo nginx -t
 }
@@ -819,6 +821,49 @@ function mysql_install {
     sudo dpkg -i mysql-apt-config_0.8.29-1_all.deb
     sudo apt -f install
     update_and_install mysql-server
+
+    datadir=$(prompt_input "datadir" "/data/mysql")
+
+    if [ "$datadir" != "/var/lib/mysql" ]; then
+        sudo mkdir -p $datadir
+        sudo rsync -av /var/lib/mysql/ $datadir
+    fi
+
+    cat << EOF | sudo tee /etc/mysql/mysql.conf.d/mysqld.cnf > /dev/null
+[mysqld]
+pid-file	= /var/run/mysqld/mysqld.pid
+socket		= /var/run/mysqld/mysqld.sock
+#datadir	= /var/lib/mysql
+datadir		= $datadir
+log-error	= /var/log/mysql/error.log
+skip-log-bin
+innodb_compression_level = 3
+# 缓存大小设置
+innodb_buffer_pool_size = 2G  # 设置为系统内存的 60%-80%，对于大多数工作负载
+innodb_log_file_size = 256M   # 设置适合的大小，通常为 128M 或 256M
+innodb_log_buffer_size = 16M  # 提高写性能
+# 缓冲区和缓存设置
+table_open_cache = 400       # 增加表缓存大小
+table_definition_cache = 200 # 增加表定义缓存
+# InnoDB 设置
+innodb_flush_log_at_trx_commit = 2  # 改善写性能，可能会略微降低数据一致性
+innodb_thread_concurrency = 0       # 让 InnoDB 自动管理线程并发
+# I/O 设置
+innodb_io_capacity = 2000           # 根据你的硬盘性能进行调整
+innodb_io_capacity_max = 4000
+# 日志设置
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 2                 # 记录执行时间超过 2 秒的查询
+# 其他设置
+tmp_table_size = 64M                # 增加临时表大小
+max_heap_table_size = 64M           # 增加内存临时表大小
+max_connections = 500               # 增加最大连接数
+thread_cache_size = 50              # 提高线程缓存，提高连接性能
+# 文件和表设置
+max_allowed_packet = 64M            # 增加最大允许的包大小
+open_files_limit = 65535            # 增加打开文件的限制
+EOF
 
     sudo systemctl start mysql
     sudo systemctl enable mysql
