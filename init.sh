@@ -180,7 +180,6 @@ function sb_config {
 
     # User inputs
     vless_port=$(prompt_input "vless tcp port" 1443)
-    vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
     ss_port=$(prompt_input "shadowsocks port" 10443)
     ss_method=$(prompt_input "shadowsocks method" "2022-blake3-aes-256-gcm")
     ss_password=$(prompt_input "shadowsocks password" "")
@@ -188,7 +187,6 @@ function sb_config {
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "")
-    vmess_path=$(prompt_input "vmess ws path" "cf8443")
 
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
@@ -221,21 +219,6 @@ function sb_config {
                     "private_key": "$reality_private",
                     "short_id": ["$reality_short_id"]
                 }
-            }
-        },
-        {
-            "type": "vmess",
-            "listen": "::",
-            "listen_port": $vmess_ws_port,
-            "users": [
-                {
-                    "name": "$uuid",
-                    "uuid": "$uuid"
-                }
-            ],
-            "transport": {
-                "type": "ws",
-                "path": "/$vmess_path"
             }
         },
         {
