@@ -57,10 +57,10 @@ function sys_update {
 
     echo "安装必须软件"
     apt update
-    #apt upgrade -y
+    apt upgrade -y
     #apt dist-upgrade -y
-    #apt full-upgrade -y
-    #apt autoremove -y
+    apt full-upgrade -y
+    apt autoremove -y
     apt install curl wget sudo psmisc cron pwgen unzip net-tools -y
     apt install vnstat bc -y
     timedatectl set-timezone Asia/Shanghai
