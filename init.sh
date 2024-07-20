@@ -179,14 +179,22 @@ function sb_config {
     [ ! -d /etc/sing-box ] && mkdir -p /etc/sing-box
 
     # User inputs
+    hysteria2_port=$(prompt_input "hysteria2 udp port" 1443)
     vless_port=$(prompt_input "vless tcp port" 1443)
+    socks_port=$(prompt_input "socks5 port" 1444)
+
+    tuic_port=$(prompt_input "tuic udp port" 8443)
+    vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
+    
     ss_port=$(prompt_input "shadowsocks port" 10443)
     ss_method=$(prompt_input "shadowsocks method" "2022-blake3-aes-256-gcm")
     ss_password=$(prompt_input "shadowsocks password" "")
+
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "")
+    vmess_path=$(prompt_input "vmess ws path" "cf8443")
 
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
@@ -197,6 +205,71 @@ function sb_config {
         "timestamp": true
     },
     "inbounds": [
+EOF
+
+if [ "$socks_port" -gt 0 ]; then
+    cat <<EOF >> /etc/sing-box/config.json
+        {
+            "type": "socks",
+            "listen": "::",
+            "listen_port": $socks_port,
+            "users": [
+                {
+                    "username": "$uuid",
+                    "password": "$uuid"
+                }
+            ]
+        },
+EOF
+fi
+
+if [ "$tuic_port" -gt 0 ]; then
+    cat <<EOF >> /etc/sing-box/config.json
+        {
+            "type": "tuic",
+            "listen": "::",
+            "listen_port": $tuic_port,
+            "users": [
+                {
+                    "uuid": "$uuid",
+                    "password": "$uuid"
+                }
+            ],
+            "congestion_control": "bbr",
+            "tls": {
+                "enabled": true,
+                "alpn": ["h3"],
+                "certificate_path": "/etc/cert/cert.pem",
+                "key_path": "/etc/cert/private.key"
+            }
+        },
+EOF
+fi
+
+if [ "$hysteria2_port" -gt 0 ]; then
+    cat <<EOF >> /etc/sing-box/config.json
+        {
+            "type": "hysteria2",
+            "listen": "::",
+            "listen_port": $hysteria2_port,
+            "users": [
+                {
+                    "password": "$uuid"
+                }
+            ],
+            "masquerade": "https://bing.com",
+            "tls": {
+                "enabled": true,
+                "alpn": ["h3"],
+                "certificate_path": "/etc/cert/cert.pem",
+                "key_path": "/etc/cert/private.key"
+            }
+        },
+EOF
+fi
+
+if [ "$vless_port" -gt 0 ]; then
+    cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "vless",
             "listen": "::",
@@ -221,6 +294,30 @@ function sb_config {
                 }
             }
         },
+EOF
+fi
+
+if [ "$vmess_ws_port" -gt 0 ]; then
+    cat <<EOF >> /etc/sing-box/config.json
+        {
+            "type": "vmess",
+            "listen": "::",
+            "listen_port": $vmess_ws_port,
+            "users": [
+                {
+                    "name": "$uuid",
+                    "uuid": "$uuid"
+                }
+            ],
+            "transport": {
+                "type": "ws",
+                "path": "/$vmess_path"
+            }
+        },
+EOF
+fi
+
+    cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "shadowsocks",
             "listen": "::",
