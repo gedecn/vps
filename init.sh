@@ -61,7 +61,7 @@ function sys_update {
     #apt dist-upgrade -y
     apt full-upgrade -y
     apt autoremove -y
-    apt install curl wget sudo psmisc cron pwgen unzip net-tools -y
+    apt install curl wget sudo psmisc cron pwgen unzip net-tools rsync -y
     apt install vnstat bc -y
     timedatectl set-timezone Asia/Shanghai
 
