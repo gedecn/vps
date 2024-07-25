@@ -207,7 +207,7 @@ function sb_config {
     "inbounds": [
 EOF
 
-if [ "$socks_port" -gt 0 ]; then
+if [ "$socks_port" != "none" ]; then
     cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "socks",
@@ -223,7 +223,7 @@ if [ "$socks_port" -gt 0 ]; then
 EOF
 fi
 
-if [ "$tuic_port" -gt 0 ]; then
+if [ "$tuic_port" != "none" ]; then
     cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "tuic",
@@ -246,7 +246,7 @@ if [ "$tuic_port" -gt 0 ]; then
 EOF
 fi
 
-if [ "$hysteria2_port" -gt 0 ]; then
+if [ "$hysteria2_port" != "none" ]; then
     cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "hysteria2",
@@ -268,7 +268,7 @@ if [ "$hysteria2_port" -gt 0 ]; then
 EOF
 fi
 
-if [ "$vless_port" -gt 0 ]; then
+if [ "$vless_port" != "none" ]; then
     cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "vless",
@@ -297,7 +297,7 @@ if [ "$vless_port" -gt 0 ]; then
 EOF
 fi
 
-if [ "$vmess_ws_port" -gt 0 ]; then
+if [ "$vmess_ws_port" != "none" ]; then
     cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "vmess",
@@ -317,6 +317,7 @@ if [ "$vmess_ws_port" -gt 0 ]; then
 EOF
 fi
 
+if [ "$ss_port" != "none" ]; then
     cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "shadowsocks",
@@ -324,7 +325,9 @@ fi
             "listen_port": $ss_port,
             "method": "$ss_method",
             "password": "$ss_password"
-        }
+        },
+EOF
+fi
     ],
     "outbounds": [
         {
@@ -1107,10 +1110,18 @@ EOF
 function gost_install {
     listen_port=$(prompt_input "listen port" 1443)
     node_ip_port=$(prompt_input "node ip and port" "")
+
+    socks_port=$(prompt_input "socks5 port" 1444)
+    uuid=$(prompt_input "uuid" "")
+
     bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
 
     cat <<EOF > /root/gost_config.yml
 services:
+EOF
+
+if [ "$listen_port" != "none" ]; then
+    cat <<EOF >> /root/gost_config.yml
 - name: service-0
   addr: :$listen_port
   handler:
@@ -1121,6 +1132,19 @@ services:
     nodes:
     - name: target-0
       addr: $node_ip_port
+EOF
+fi
+
+if [ "$socks_port" != "none" ]; then
+    cat <<EOF >> /root/gost_config.yml
+- name: "socks5"
+  addr: ":$socks_port"
+  username: "$uuid"
+  password: "$uuid"
+EOF
+fi
+
+cat <<EOF >> /root/gost_config.yml
 log:
   output: none
   level: error
