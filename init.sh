@@ -1136,19 +1136,29 @@ fi
 
 if [ "$socks_port" != "none" ]; then
     cat <<EOF >> /root/gost_config.yml
-- name: "socks5"
+- name: service-socks5
   addr: ":$socks_port"
-  username: "$uuid"
-  password: "$uuid"
+  handler:
+    type: socks5
+    auth:
+      username: "$uuid"
+      password: "$uuid"
+  listener:
+    type: tcp
 EOF
 fi
 
 if [ "$ss_port" != "none" ]; then
     cat <<EOF >> /root/gost_config.yml
-- name: "shadowsocks"
-    addr: ":$ss_port"
-    method: "aes-256-gcm"
-    password: "$uuid"
+- name: service-ss
+  addr: ":$ss_port"
+  handler:
+    type: ss
+    auth:
+      username: aes-256-gcm
+      password: "$uuid"
+  listener:
+    type: tcp
 EOF
 fi
 
