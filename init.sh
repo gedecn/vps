@@ -187,8 +187,8 @@ function sb_config {
     vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
     
     ss_port=$(prompt_input "shadowsocks port" 10443)
-    ss_method=$(prompt_input "shadowsocks method" "2022-blake3-aes-256-gcm")
-    ss_password=$(prompt_input "shadowsocks password" "")
+    #ss_method=$(prompt_input "shadowsocks method" "aes-256-gcm")
+    #ss_password=$(prompt_input "shadowsocks password" "")
 
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
@@ -317,17 +317,15 @@ if [ "$vmess_ws_port" != "none" ]; then
 EOF
 fi
 
-if [ "$ss_port" != "none" ]; then
+
     cat <<EOF >> /etc/sing-box/config.json
         {
             "type": "shadowsocks",
             "listen": "::",
             "listen_port": $ss_port,
-            "method": "$ss_method",
-            "password": "$ss_password"
-        },
-EOF
-fi
+            "method": "aes-256-gcm",
+            "password": "$uuid"
+        }
     ],
     "outbounds": [
         {
@@ -1113,6 +1111,7 @@ function gost_install {
 
     socks_port=$(prompt_input "socks5 port" 1444)
     uuid=$(prompt_input "uuid" "")
+    ss_port=$(prompt_input "shadowsocks port" 10443)
 
     bash <(curl -fsSL https://github.com/go-gost/gost/raw/master/install.sh) --install
 
@@ -1141,6 +1140,15 @@ if [ "$socks_port" != "none" ]; then
   addr: ":$socks_port"
   username: "$uuid"
   password: "$uuid"
+EOF
+fi
+
+if [ "$ss_port" != "none" ]; then
+    cat <<EOF >> /root/gost_config.yml
+- name: "shadowsocks"
+    addr: ":$ss_port"
+    method: "aes-256-gcm"
+    password: "$uuid"
 EOF
 fi
 
