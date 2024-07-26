@@ -184,7 +184,7 @@ function sb_config {
     socks_port=$(prompt_input "socks5 port" 1444)
 
     tuic_port=$(prompt_input "tuic udp port" 8443)
-    vmess_ws_port=$(prompt_input "vmess ws tcp port" 8443)
+    vless_ws_port=$(prompt_input "vless ws tcp port" 8443)
     
     ss_port=$(prompt_input "shadowsocks port" 10443)
     #ss_method=$(prompt_input "shadowsocks method" "aes-256-gcm")
@@ -194,7 +194,7 @@ function sb_config {
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
     reality_server=$(prompt_input "reality server" "")
-    vmess_path=$(prompt_input "vmess ws path" "cf8443")
+    vless_path=$(prompt_input "vless ws path" "cf8443")
 
     # Configure sing-box
     cat <<EOF > /etc/sing-box/config.json
@@ -297,12 +297,12 @@ if [ "$vless_port" != "none" ]; then
 EOF
 fi
 
-if [ "$vmess_ws_port" != "none" ]; then
+if [ "$vless_ws_port" != "none" ]; then
     cat <<EOF >> /etc/sing-box/config.json
         {
-            "type": "vmess",
+            "type": "vless",
             "listen": "::",
-            "listen_port": $vmess_ws_port,
+            "listen_port": $vless_ws_port,
             "users": [
                 {
                     "name": "$uuid",
@@ -311,7 +311,7 @@ if [ "$vmess_ws_port" != "none" ]; then
             ],
             "transport": {
                 "type": "ws",
-                "path": "/$vmess_path"
+                "path": "/$vless_path"
             }
         },
 EOF
