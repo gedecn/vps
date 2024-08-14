@@ -59,10 +59,19 @@ function sys_update {
     apt update
     apt upgrade -y
     #apt dist-upgrade -y
-    apt full-upgrade -y
+    #apt full-upgrade -y
     apt autoremove -y
-    apt install curl wget sudo psmisc cron pwgen unzip net-tools rsync -y
-    apt install vnstat bc -y
+
+    choice1=$(prompt_input "install tools yes or no" "no")
+    if [ "$choice1" = "yes" ]; then
+        apt install curl wget sudo psmisc cron pwgen unzip net-tools rsync -y
+    fi
+
+    choice2=$(prompt_input "install vnstat yes or no" "no")
+    if [ "$choice2" = "yes" ]; then
+        apt install vnstat bc -y
+    fi
+
     timedatectl set-timezone Asia/Shanghai
 
     echo "✓ 操作完成"
