@@ -61,10 +61,11 @@ function sys_update {
     #apt dist-upgrade -y
     #apt full-upgrade -y
     apt autoremove -y
+    apt install curl wget sudo psmisc cron -y
 
     choice1=$(prompt_input "install tools yes or no" "no")
     if [ "$choice1" = "yes" ]; then
-        apt install curl wget sudo psmisc cron pwgen unzip net-tools rsync -y
+        apt install unzip net-tools rsync -y
     fi
 
     choice2=$(prompt_input "install vnstat yes or no" "no")
@@ -82,7 +83,7 @@ function ssh_security {
 
     authorized_keys=$(prompt_input "ssh authorized_keys" "")
     newport=$(prompt_input "ssh port" "22")
-    newpw=$(prompt_input "root password" $(pwgen -s 12 1))
+    newpw=$(prompt_input "root password" "")
 
     echo "root:$newpw" | chpasswd
 
