@@ -1213,9 +1213,9 @@ function dns_change {
 
     # 修改 /etc/resolv.conf 文件
     sudo bash -c 'cat > /etc/resolv.conf << EOF
-    nameserver 1.1.1.1
-    nameserver 8.8.8.8
-    nameserver 8.8.4.4
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+nameserver 8.8.4.4
 EOF'
 
     # 重启网络服务以应用更改
