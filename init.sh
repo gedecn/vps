@@ -1203,6 +1203,7 @@ EOF
 }
 
 function dns_change {
+    
     # 修改 /etc/dhcp/dhclient.conf 文件
     echo "supersede domain-name-servers 1.1.1.1, 8.8.8.8, 8.8.4.4;" | sudo tee -a /etc/dhcp/dhclient.conf
 
@@ -1215,7 +1216,7 @@ function dns_change {
     nameserver 1.1.1.1
     nameserver 8.8.8.8
     nameserver 8.8.4.4
-    EOF'
+EOF'
 
     # 重启网络服务以应用更改
     sudo systemctl restart networking.service
