@@ -1202,6 +1202,29 @@ EOF
     systemctl status gost
 }
 
+function dns_change {
+    # 修改 /etc/dhcp/dhclient.conf 文件
+    echo "supersede domain-name-servers 1.1.1.1, 8.8.8.8, 8.8.4.4;" | sudo tee -a /etc/dhcp/dhclient.conf
+
+    # 备份 /etc/resolv.conf 文件
+    sudo cp /etc/resolv.conf /etc/resolv.conf.bak
+    echo "已备份 /etc/resolv.conf 到 /etc/resolv.conf.bak"
+
+    # 修改 /etc/resolv.conf 文件
+    sudo bash -c 'cat > /etc/resolv.conf << EOF
+    nameserver 1.1.1.1
+    nameserver 8.8.8.8
+    nameserver 8.8.4.4
+    EOF'
+
+    # 重启网络服务以应用更改
+    sudo systemctl restart networking.service
+
+    # 输出当前DNS设置以验证
+    echo "当前DNS设置:"
+    cat /etc/resolv.conf
+}
+
 function main_menu {
 
     #标准输入
@@ -1241,6 +1264,7 @@ function main_menu {
     39)  安装mysql8
     40)  安装redis7
     41)  安装gost
+    42)  修改dns
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -1355,6 +1379,9 @@ while [ 2 -gt 0 ]
           ;;
           41)
             gost_install
+          ;;
+          42)
+            dns_change
           ;;
           90)
             juicity_uninstall
