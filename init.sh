@@ -65,7 +65,7 @@ function sys_update {
 
     choice1=$(prompt_input "install tools yes or no" "no")
     if [ "$choice1" = "yes" ]; then
-        apt install unzip net-tools rsync -y
+        apt install unzip net-tools dnsutils rsync -y
     fi
 
     choice2=$(prompt_input "install vnstat yes or no" "no")
@@ -664,27 +664,30 @@ function hostname_change {
 
     NEW_HOSTNAME=$(prompt_input "hostname" "")
 
-    # 修改系统主机名
-    echo $NEW_HOSTNAME > /etc/hostname
+    # 显示当前主机名
+    CURRENT_HOSTNAME=$(hostname)
+    echo "当前主机名: $CURRENT_HOSTNAME"
 
-    # 定义要添加的记录，例如：IP地址 主机名1 主机名2
-    NEW_ENTRY="127.0.0.1 $NEW_HOSTNAME"
+    # 更新 /etc/hostname 文件
+    echo "$NEW_HOSTNAME" > /etc/hostname
+    echo "/etc/hostname 文件已更新为: $NEW_HOSTNAME"
 
-    # 备份/etc/hosts文件
-    sudo cp /etc/hosts /etc/hosts.backup-$(date +%Y%m%d%H%M%S)
-
-    # 检查是否已存在该条目，如果不存在则追加
-    if ! grep -q "$NEW_ENTRY" /etc/hosts; then
-        echo "Adding entry to /etc/hosts: $NEW_ENTRY"
-        sudo sh -c "echo '$NEW_ENTRY' >> /etc/hosts"
-        echo "Entry added successfully."
+    # 更新 /etc/hosts 文件
+    if grep -q "$CURRENT_HOSTNAME" /etc/hosts; then
+    sed -i "s/$CURRENT_HOSTNAME/$NEW_HOSTNAME/g" /etc/hosts
+    echo "/etc/hosts 文件中的 $CURRENT_HOSTNAME 已更新为 $NEW_HOSTNAME"
     else
-        echo "The entry already exists in /etc/hosts. No changes were made."
+    echo "127.0.1.1   $NEW_HOSTNAME" >> /etc/hosts
+    echo "$NEW_HOSTNAME 已添加到 /etc/hosts 文件"
     fi
 
-    # 刷新系统 hostname 设置
-    sudo hostname --file /etc/hostname
-    sudo hostnamectl set-hostname "$NEW_HOSTNAME"
+    # 使用 hostnamectl 设置新的主机名（适用于 systemd）
+    hostnamectl set-hostname "$NEW_HOSTNAME"
+    echo "hostnamectl 已将主机名设置为: $NEW_HOSTNAME"
+
+    # 确保主机名立即生效
+    hostname "$NEW_HOSTNAME"
+    echo "主机名已立即生效: $NEW_HOSTNAME"
 
     echo "✓ 操作完成"
 }
