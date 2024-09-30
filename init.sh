@@ -424,17 +424,58 @@ function traffic_check {
 
     cat <<EOF > /root/traffic_check.sh
 #!/bin/bash
+
 limit=$limit
 server="$server"
+data_file="/root/traffic_data.txt"
+
+# 获取当前流量
 traffic=\$(vnstat --oneline b | awk -F';' '{print \$10}')
 traffic_gb=\$(echo "scale=2; \$traffic / 1024 / 1024 / 1024" | bc)
 echo "本月流量: \$traffic_gb GB, 流量限制: \$limit GB"
-if (( \$(echo "\$traffic_gb > \$limit" | bc -l) )); then
-echo "月流量超过 \$limit GB，自动关机"
-shutdown -h now
+
+# 检查是否存在上次记录
+if [ -f "\$data_file" ]; then
+    read last_time last_traffic < "\$data_file"
+    current_time=\$(date +%s)
+    time_diff=\$((current_time - last_time))
+    
+    # 计算时间间隔（分钟）
+    time_diff_min=\$((time_diff / 60))
+    
+    # 计算每分钟消耗的流量（MB）
+    traffic_diff=\$(echo "\$traffic - \$last_traffic" | bc)
+    if [ "\$time_diff_min" -gt 0 ]; then
+        consumption_per_min=\$(echo "scale=2; \$traffic_diff / \$time_diff_min / 1024 / 1024" | bc)  # 转换为MB
+    else
+        consumption_per_min=0
+    fi
+    
+    echo "上次流量: \$(echo "scale=2; \$last_traffic / 1024 / 1024 / 1024" | bc) GB, 时间间隔: \$time_diff_min 分钟, 每分钟消耗: \$consumption_per_min MB"
+else
+    echo "这是第一次运行，未找到上次记录"
 fi
+
+# 更新记录
+echo "\$current_time \$traffic" > "\$data_file"
+
+# 检查流量限制
+if (( \$(echo "\$traffic_gb > \$limit" | bc -l) )); then
+    echo "月流量超过 \$limit GB，自动关机"
+    shutdown -h now
+fi
+
+# 计算进度条
+usage_ratio=\$(echo "scale=2; \$traffic_gb / \$limit * 100" | bc)
+
+# 计算每分钟应该消耗的最大流量（MB）
+total_minutes=\$((30*24*60))  # 修正为整数计算
+max_consumption_per_min=\$(echo "scale=2; \$limit * 1024 / \$total_minutes" | bc)  # 转换为MB
+
 # 推送Telegram Bot
-curl -X POST "https://api.telegram.org/bot$bottoken/sendMessage" -F "chat_id=$chatid" -F "text=\${server}出站流量 \${traffic_gb} / \${limit} GB"
+curl -X POST "https://api.telegram.org/bot$bottoken/sendMessage" \
+-F "chat_id=$chatid" \
+-F "text=\${server} [每分 \${consumption_per_min} MB / \${max_consumption_per_min} MB] [流量 \${traffic_gb} / \${limit} GB / \${usage_ratio}%]"
 EOF
 
     #增加执行权限
