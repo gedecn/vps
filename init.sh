@@ -791,8 +791,6 @@ http {
     gzip_http_version 1.1;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
-    include /etc/nginx/conf.d/*.conf;
-
     # Increase client body size to allow for large file uploads
     client_max_body_size 10M;
 
@@ -805,6 +803,8 @@ http {
     client_body_timeout 12;
     client_header_timeout 12;
     send_timeout 10;
+
+    include /etc/nginx/conf.d/*.conf;
 }
 EOF
 
@@ -1267,6 +1267,48 @@ EOF'
     cat /etc/resolv.conf
 }
 
+function caddy_install {
+    sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+    sudo apt update
+    sudo apt install caddy
+
+    cat > /etc/caddy/Caddyfile <<EOF
+www.test.com, test.com {
+    root * /data/test.com
+    tls www@test.com
+    encode gzip
+
+    log {
+        output discard
+    }
+
+    try_files {path} {path}/ /index.php?rewrite={uri}
+
+    handle_path /xxx/* {
+        root * /data/xxx
+        file_server
+    }
+
+    handle_path /yyy/* {
+        reverse_proxy http://yyy.com
+    }
+
+    reverse_proxy 192.168.0.1:12345 {
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+    }
+
+    php_fastcgi unix//run/php/php8.2-fpm.sock
+}
+EOF
+
+    systemctl restart caddy
+    systemctl status caddy
+}
+
 function main_menu {
 
     #标准输入
@@ -1307,6 +1349,7 @@ function main_menu {
     40)  安装redis7
     41)  安装gost
     42)  修改dns
+    43)  安装caddy
     90)  卸载juicity
     91)  卸载sing-box
     92)  卸载Hysteria 2
@@ -1424,6 +1467,9 @@ while [ 2 -gt 0 ]
           ;;
           42)
             dns_change
+          ;;
+          43)
+            caddy_install
           ;;
           90)
             juicity_uninstall
