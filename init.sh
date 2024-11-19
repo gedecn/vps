@@ -1284,24 +1284,20 @@ www.test.com, test.com {
         output discard
     }
 
-    try_files {path} {path}/ /index.php?rewrite={uri}
+    #handle /xxx/* {
+    #    file_server
+    #}
 
-    handle_path /xxx/* {
-        root * /data/xxx
-        file_server
-    }
+    #handle /yyy/* {
+    #    reverse_proxy http://yyy.com
+    #}
 
-    handle_path /yyy/* {
-        reverse_proxy http://yyy.com
-    }
+    #reverse_proxy 192.168.0.1:12345
 
-    reverse_proxy 192.168.0.1:12345 {
-        header_up Host {host}
-        header_up X-Real-IP {remote}
-        header_up X-Forwarded-For {remote}
-    }
-
-    php_fastcgi unix//run/php/php8.2-fpm.sock
+    #handle {
+    #    php_fastcgi unix//run/php/php8.2-fpm.sock
+    #    try_files {path} {path}/ /index.php?rewrite={uri}
+    #}
 }
 EOF
 
