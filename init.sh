@@ -817,58 +817,35 @@ sudo nginx -t
 function create_nginx_site_config {
     local domain=$1
     local webroot=$2
-    local ssl_cert=$3
-    local ssl_key=$4
-
-    phpfpm=$(prompt_input "php-fpm version" "php8.2-fpm")
 
     mkdir -p $webroot/$domain
-    rm /etc/nginx/conf.d/default.conf
 
     cat <<EOF > /etc/nginx/conf.d/$domain.conf
 server {
-    listen 80 default_server;
-    server_name _;
-    root   $webroot/$domain;
-    location / {
-        index  index.php index.html index.htm;
-    }
-    location ~ [^/]\.php(/|$) {
-        fastcgi_pass unix:/run/php/$phpfpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
-    }
-}
-EOF
-
-    if [[ -n $ssl_cert && -n $ssl_key ]]; then
-        cat <<EOF >> /etc/nginx/conf.d/$domain.conf
-server {
-    listen 443 ssl;
+    listen 80;
     server_name $domain;
-    root   $webroot/$domain;
-    access_log off;
-    ssl_certificate $ssl_cert;
-    ssl_certificate_key $ssl_key;
-
-    rewrite ^/f/(.+)$ /index.php?rewrite=mod/forum/fid/\$1 last;
-    rewrite ^/t/(.+)$ /index.php?rewrite=mod/thread/tid/\$1 last;
-    rewrite ^/u/(.+)$ /index.php?rewrite=mod/space/uid/\$1 last;
-    rewrite ^/m/(.+)$ /index.php?rewrite=mod/\$1 last;
-
-    location / {
-        index  index.php index.html index.htm;
-    }
-    location ~ [^/]\.php(/|$) {
-        fastcgi_pass unix:/run/php/$phpfpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param  SCRIPT_FILENAME    \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
-    }
+    root $webroot/$domain;
+#    return 301 https://\$host\$request_uri;
 }
+#server {
+#    listen 443 ssl http2;
+#    server_name $domain;
+#    root $webroot/$domain;
+#    access_log off;
+#    ssl_certificate /etc/cert/$domain/cert.crt;
+#    ssl_certificate_key /etc/cert/$domain/private.key;
+#    location / {
+#        index index.php index.html index.htm;
+#        try_files $uri $uri/ /index.php?rewrite=$query_string;
+#    }
+#    location ~ [^/]\.php(/|$) {
+#        fastcgi_pass unix:/run/php/$phpfpm.sock;
+#        fastcgi_index index.php;
+#        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+#        include fastcgi_params;
+#    }
+#}
 EOF
-    fi
 }
 
 # Nginx安装和配置
@@ -983,8 +960,6 @@ function ssl_install {
 
     mkdir -p /etc/cert/$domain
     $ACME_SH_DIR/acme.sh --installcert -d $domain --key-file /etc/cert/$domain/private.key --fullchain-file /etc/cert/$domain/cert.crt
-
-    create_nginx_site_config $domain $webroot /etc/cert/$domain/cert.crt /etc/cert/$domain/private.key
 
     sudo systemctl reload nginx
 }
