@@ -836,10 +836,10 @@ server {
 #    ssl_certificate_key /etc/cert/$domain/private.key;
 #    location / {
 #        index index.php index.html index.htm;
-#        try_files $uri $uri/ /index.php?rewrite=$query_string;
+#        try_files \$uri \$uri/ /index.php?rewrite=\$query_string;
 #    }
 #    location ~ [^/]\.php(/|$) {
-#        fastcgi_pass unix:/run/php/$phpfpm.sock;
+#        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
 #        fastcgi_index index.php;
 #        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
 #        include fastcgi_params;
