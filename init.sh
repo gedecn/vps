@@ -802,7 +802,7 @@ server {
     server_name $domain www.$domain;
     root $webroot/$domain;
     access_log off;
-    index index.php index.html index.htm;
+    index index.html index.htm;
     location / {
         try_files \$uri \$uri/ =404;
     }
@@ -825,6 +825,7 @@ server {
     listen 443 ssl;
     server_name $domain www.$domain;
     root $webroot/$domain;
+    index index.php index.html index.htm;
     access_log off;
 
     ssl_certificate $ssl_cert;
