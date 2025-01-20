@@ -889,9 +889,8 @@ function nginx_install {
 function php_install {
     phpfpm=$(prompt_input "php-fpm version" "php8.3-fpm")
 
-    wget -q https://packages.sury.org/php/apt.gpg -O- | sudo tee /etc/apt/trusted.gpg.d/php.sury.asc
-    echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list
-    sudo apt update
+    update_and_install software-properties-common
+    sudo add-apt-repository ppa:ondrej/php
     update_and_install php $phpfpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
 
     sudo systemctl restart $phpfpm
