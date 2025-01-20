@@ -830,7 +830,8 @@ server {
     ssl_certificate $ssl_cert;
     ssl_certificate_key $ssl_key;
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers 'TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:HIGH:!aNULL:!MD5:!RC4:!DSS:!3DES';
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers off;
 
     location / {
         try_files \$uri \$uri/ =404;
@@ -978,7 +979,7 @@ function ssl_install {
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain"
 
-    /root/.acme.sh/acme.sh --issue --nginx -d "$domain"
+    /root/.acme.sh/acme.sh --issue --nginx -d "$domain" -d "www.$domain"
     /root/.acme.sh/acme.sh --installcert -d "$domain" \
         --key-file "/etc/cert/$domain/private.key" \
         --fullchain-file "/etc/cert/$domain/cert.crt"
