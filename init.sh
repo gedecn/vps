@@ -996,7 +996,7 @@ function ssl_install {
             cloudflare_email=$(prompt_input "Cloudflare email" "")
             export CF_Key="$api_key"
             export CF_Email="$cloudflare_email"
-            /root/.acme.sh/acme.sh --issue --dns dns_cf -d $domain -d "*.$domain"
+            /root/.acme.sh/acme.sh --issue --dns dns_cf -d $domain -d "www.$domain"
             ;;
         ali)
             # 获取 AliDNS API 密钥
@@ -1004,7 +1004,7 @@ function ssl_install {
             api_secret=$(prompt_input "Ali DNS API secret" "")
             export Ali_Key="$api_key"
             export Ali_Secret="$api_secret"
-            /root/.acme.sh/acme.sh --issue --dns dns_ali -d $domain -d "*.$domain"
+            /root/.acme.sh/acme.sh --issue --dns dns_ali -d $domain -d "www.$domain"
             ;;
         *)
             echo "Invalid method selected. Please choose 'nginx', 'cf', or 'ali'."
