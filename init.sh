@@ -138,9 +138,9 @@ function cert_make {
 
     echo "生成bing.com的证书"
 
-    [ ! -d /etc/cert ] && mkdir -p /etc/cert
-    openssl ecparam -genkey -name prime256v1 -out /etc/cert/private.key
-    openssl req -new -x509 -days 3650 -key /etc/cert/private.key -out /etc/cert/cert.pem -subj "/CN=bing.com"
+    [ ! -d /etc/cert/bing.com ] && mkdir -p /etc/cert/bing.com
+    openssl ecparam -genkey -name prime256v1 -out /etc/cert/bing.com/private.key
+    openssl req -new -x509 -days 3650 -key /etc/cert/bing.com/private.key -out /etc/cert/bing.com/cert.crt -subj "/CN=bing.com"
 
     echo "✓ 操作完成"
 }
@@ -225,8 +225,8 @@ if [ "$tuic_port" != "none" ]; then
             "tls": {
                 "enabled": true,
                 "alpn": ["h3"],
-                "certificate_path": "/etc/cert/cert.pem",
-                "key_path": "/etc/cert/private.key"
+                "certificate_path": "/etc/cert/bing.com/cert.crt",
+                "key_path": "/etc/cert/bing.com/private.key"
             }
         },
 EOF
@@ -247,7 +247,7 @@ if [ "$hysteria2_port" != "none" ]; then
             "tls": {
                 "enabled": true,
                 "alpn": ["h3"],
-                "certificate_path": "/etc/cert/cert.pem",
+                "certificate_path": "/etc/cert/cert.crt",
                 "key_path": "/etc/cert/private.key"
             }
         },
@@ -548,8 +548,8 @@ function juicity_install {
     "users": {
         "$uuid": "$uuid"
     },
-    "certificate": "/etc/cert/cert.pem",
-    "private_key": "/etc/cert/private.key",
+    "certificate": "/etc/cert/bing.com/cert.crt",
+    "private_key": "/etc/cert/bing.com/private.key",
     "congestion_control": "bbr",
     "disable_outbound_udp443": true,
     "log_level": "error"
@@ -979,12 +979,12 @@ function ssl_install {
     mkdir -p "/etc/cert/$domain"
 
     /root/.acme.sh/acme.sh --issue --nginx -d "$domain"
-    /root/.acme.sh/acme.sh --installcert -d $domain \
-        --key-file /etc/cert/$domain/private.key \
-        --fullchain-file /etc/cert/$domain/cert.crt
+    /root/.acme.sh/acme.sh --installcert -d "$domain" \
+        --key-file "/etc/cert/$domain/private.key" \
+        --fullchain-file "/etc/cert/$domain/cert.crt"
 
     # 创建并重载 nginx 配置
-    create_nginx_site_config $domain $webroot /etc/cert/$domain/cert.crt /etc/cert/$domain/private.key
+    create_nginx_site_config "$domain" "$webroot" "/etc/cert/$domain/cert.crt" "/etc/cert/$domain/private.key"
     sudo systemctl restart nginx
 
     echo "SSL certificate installation completed for $domain."
