@@ -968,12 +968,9 @@ function ssl_install {
     # 获取用户输入
     domain=$(prompt_input "Your domain (xxx.com)" "")
     email=$(prompt_input "Your domain email" "")
-    method=$(prompt_input "Method (nginx OR cf OR ali)" "cf")
 
     # 安装 acme.sh 如果未安装
-    if ! command -v acme.sh &> /dev/null; then
-        wget -qO- get.acme.sh | bash
-    fi
+    curl https://get.acme.sh | sh -s email="$email"
 
     # 设置默认 CA 为 Let's Encrypt
     /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
@@ -981,53 +978,14 @@ function ssl_install {
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain"
 
-    # 根据不同的方法申请证书
-    case "$method" in
-        nginx)
-            # 获取 nginx 配置路径
-            webroot=$(prompt_input "nginx server root path" "/data/wwwroot")
-            create_nginx_site_config "$domain" "$webroot"
-            sudo systemctl reload nginx
-            /root/.acme.sh/acme.sh --issue -d "$domain" --webroot "$webroot/$domain"
-            ;;
-        cf)
-            # 获取 Cloudflare API 密钥
-            api_key=$(prompt_input "Cloudflare API key" "")
-            cloudflare_email=$(prompt_input "Cloudflare email" "")
-            api_ini="/root/.acme.sh/dnsapi/cloudflare.ini"
-            cat > "$api_ini" <<EOL
-CF_Key="$api_key"
-CF_Email="$cloudflare_email"
-EOL
-            chmod 600 "$api_ini"
-            /root/.acme.sh/acme.sh --issue --dns dns_cf -d "$domain" -d "*.$domain" --dns-conf "$api_ini" --debug
-            ;;
-        ali)
-            # 获取 AliDNS API 密钥
-            api_key=$(prompt_input "Ali DNS API key" "")
-            api_secret=$(prompt_input "Ali DNS API secret" "")
-            api_ini="/root/.acme.sh/dnsapi/ali.ini"
-            cat > "$api_ini" <<EOL
-Ali_Key="$api_key"
-Ali_Secret="$api_secret"
-EOL
-            chmod 600 "$api_ini"
-            /root/.acme.sh/acme.sh --issue --dns dns_ali -d "$domain" -d "*.$domain" --dns-conf "$api_ini" --debug
-            ;;
-        *)
-            echo "Invalid method selected. Please choose 'nginx', 'cf', or 'ali'."
-            return 1
-            ;;
-    esac
-
-    # 安装证书
+    /root/.acme.sh/acme.sh --issue --nginx -d "$domain"
     /root/.acme.sh/acme.sh --installcert -d $domain \
         --key-file /etc/cert/$domain/private.key \
         --fullchain-file /etc/cert/$domain/cert.crt
 
     # 创建并重载 nginx 配置
     create_nginx_site_config $domain $webroot /etc/cert/$domain/cert.crt /etc/cert/$domain/private.key
-    sudo systemctl reload nginx
+    sudo systemctl restart nginx
 
     echo "SSL certificate installation completed for $domain."
 }
