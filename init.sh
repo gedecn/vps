@@ -973,11 +973,10 @@ function ssl_install {
     # 安装 acme.sh 如果未安装
     if ! command -v acme.sh &> /dev/null; then
         wget -qO- get.acme.sh | bash
-        source /root/.bashrc
     fi
 
     # 设置默认 CA 为 Let's Encrypt
-    acme.sh --set-default-ca --server letsencrypt
+    /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
 
     # 创建证书存储目录
     mkdir -p /etc/cert/$domain
@@ -989,7 +988,7 @@ function ssl_install {
             webroot=$(prompt_input "nginx server root path" "/data/wwwroot")
             create_nginx_site_config $domain $webroot
             sudo systemctl reload nginx
-            acme.sh --issue -d $domain --webroot "$webroot/$domain"
+            /root/.acme.sh/acme.sh --issue -d $domain --webroot "$webroot/$domain"
             ;;
         cf)
             # 获取 Cloudflare API 密钥
@@ -997,7 +996,7 @@ function ssl_install {
             cloudflare_email=$(prompt_input "Cloudflare email" "")
             export CF_Key="$api_key"
             export CF_Email="$cloudflare_email"
-            acme.sh --issue --dns dns_cf -d $domain -d "*.$domain"
+            /root/.acme.sh/acme.sh --issue --dns dns_cf -d $domain -d "*.$domain"
             ;;
         ali)
             # 获取 AliDNS API 密钥
@@ -1005,7 +1004,7 @@ function ssl_install {
             api_secret=$(prompt_input "Ali DNS API secret" "")
             export Ali_Key="$api_key"
             export Ali_Secret="$api_secret"
-            acme.sh --issue --dns dns_ali -d $domain -d "*.$domain"
+            /root/.acme.sh/acme.sh --issue --dns dns_ali -d $domain -d "*.$domain"
             ;;
         *)
             echo "Invalid method selected. Please choose 'nginx', 'cf', or 'ali'."
@@ -1014,7 +1013,7 @@ function ssl_install {
     esac
 
     # 安装证书
-    acme.sh --installcert -d $domain \
+    /root/.acme.sh/acme.sh --installcert -d $domain \
         --key-file /etc/cert/$domain/private.key \
         --fullchain-file /etc/cert/$domain/cert.crt
 
