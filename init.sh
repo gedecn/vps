@@ -979,7 +979,7 @@ function ssl_install {
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain"
 
-    /root/.acme.sh/acme.sh --issue --nginx -d "$domain" -d "www.$domain"
+    /root/.acme.sh/acme.sh --issue --nginx -d "$domain" -d "www.$domain" --debug
     /root/.acme.sh/acme.sh --installcert -d "$domain" \
         --key-file "/etc/cert/$domain/private.key" \
         --fullchain-file "/etc/cert/$domain/cert.crt"
