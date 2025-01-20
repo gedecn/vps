@@ -967,8 +967,12 @@ function redis_install {
 # SSL证书安装和配置
 function ssl_install {
     # 获取用户输入
+    webroot=$(prompt_input "nginx web root path" "/data/wwwroot")
     domain=$(prompt_input "Your domain (xxx.com)" "")
     email=$(prompt_input "Your domain email" "")
+
+    create_nginx_site_config "$domain" "$webroot"
+    sudo systemctl restart nginx
 
     # 安装 acme.sh 如果未安装
     curl https://get.acme.sh | sh -s email="$email"
@@ -979,7 +983,7 @@ function ssl_install {
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain"
 
-    /root/.acme.sh/acme.sh --issue --nginx -d "$domain" -d "www.$domain" --debug
+    /root/.acme.sh/acme.sh --issue -d "$domain" -d "www.$domain" -w "$webroot/$domain" --debug
     /root/.acme.sh/acme.sh --installcert -d "$domain" \
         --key-file "/etc/cert/$domain/private.key" \
         --fullchain-file "/etc/cert/$domain/cert.crt"
