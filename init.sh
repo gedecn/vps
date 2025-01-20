@@ -889,6 +889,8 @@ function nginx_install {
 function php_install {
     phpfpm=$(prompt_input "php-fpm version" "php8.3-fpm")
 
+    update_and_install software-properties-common
+    sudo add-apt-repository ppa:ondrej/php
     update_and_install php $phpfpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
 
     sudo systemctl restart $phpfpm
