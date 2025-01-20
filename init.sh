@@ -983,7 +983,7 @@ function ssl_install {
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain"
 
-    /root/.acme.sh/acme.sh --issue -d "$domain" -d "www.$domain" -w "$webroot/$domain" --debug
+    /root/.acme.sh/acme.sh --force --issue -d "$domain" -d "www.$domain" -w "$webroot/$domain" --debug
     /root/.acme.sh/acme.sh --installcert -d "$domain" \
         --key-file "/etc/cert/$domain/private.key" \
         --fullchain-file "/etc/cert/$domain/cert.crt"
