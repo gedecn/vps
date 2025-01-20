@@ -879,7 +879,7 @@ function nginx_install {
     sudo rm -f /etc/nginx/conf.d/default.conf
 
     replace_nginx_user
-    create_nginx_site_config $domain $webroot
+    create_nginx_site_config "$domain" "$webroot"
 
     sudo systemctl enable nginx
     sudo systemctl start nginx
