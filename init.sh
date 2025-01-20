@@ -881,8 +881,8 @@ function nginx_install {
     replace_nginx_user
     create_nginx_site_config $domain $webroot
 
-    sudo systemctl restart nginx
     sudo systemctl enable nginx
+    sudo systemctl start nginx
 }
 
 # PHP安装和配置
