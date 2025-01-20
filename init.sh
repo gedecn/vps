@@ -812,7 +812,7 @@ EOF
     # 如果提供了 SSL 证书和密钥，配置 HTTPS
     if [[ -n $ssl_cert && -n $ssl_key ]]; then
 
-        phpfpm=$(prompt_input "PHP-FPM version" "php8.3-fpm")
+        phpfpm=$(prompt_input "PHP-FPM version" "php8.2-fpm")
 
         cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
 server {
@@ -887,11 +887,8 @@ function nginx_install {
 
 # PHP安装和配置
 function php_install {
-    phpfpm=$(prompt_input "php-fpm version" "php8.3-fpm")
+    phpfpm=$(prompt_input "php-fpm version" "php8.2-fpm")
 
-    wget -q https://packages.sury.org/php/apt.gpg -O- | sudo tee /etc/apt/trusted.gpg.d/php.sury.asc
-    echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list
-    sudo apt update
     update_and_install php $phpfpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
 
     sudo systemctl restart $phpfpm
