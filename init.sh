@@ -979,40 +979,40 @@ function ssl_install {
     /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
 
     # 创建证书存储目录
-    mkdir -p /etc/cert/$domain
+    mkdir -p "/etc/cert/$domain"
 
     # 根据不同的方法申请证书
     case "$method" in
         nginx)
             # 获取 nginx 配置路径
             webroot=$(prompt_input "nginx server root path" "/data/wwwroot")
-            create_nginx_site_config $domain $webroot
+            create_nginx_site_config "$domain" "$webroot"
             sudo systemctl reload nginx
-            /root/.acme.sh/acme.sh --issue -d $domain --webroot "$webroot/$domain"
+            /root/.acme.sh/acme.sh --issue -d "$domain" --webroot "$webroot/$domain"
             ;;
         cf)
             # 获取 Cloudflare API 密钥
             api_key=$(prompt_input "Cloudflare API key" "")
             cloudflare_email=$(prompt_input "Cloudflare email" "")
-            api_ini = "/root/.acme.sh/dnsapi/cloudflare.ini"
+            api_ini="/root/.acme.sh/dnsapi/cloudflare.ini"
             cat > "$api_ini" <<EOL
 CF_Key="$api_key"
 CF_Email="$cloudflare_email"
 EOL
             chmod 600 "$api_ini"
-            /root/.acme.sh/acme.sh --issue --dns dns_cf -d $domain -d "*.$domain" --dns-conf "$api_ini" --debug
+            /root/.acme.sh/acme.sh --issue --dns dns_cf -d "$domain" -d "*.$domain" --dns-conf "$api_ini" --debug
             ;;
         ali)
             # 获取 AliDNS API 密钥
             api_key=$(prompt_input "Ali DNS API key" "")
             api_secret=$(prompt_input "Ali DNS API secret" "")
-            api_ini = "/root/.acme.sh/dnsapi/ali.ini"
+            api_ini="/root/.acme.sh/dnsapi/ali.ini"
             cat > "$api_ini" <<EOL
 Ali_Key="$api_key"
 Ali_Secret="$api_secret"
 EOL
             chmod 600 "$api_ini"
-            /root/.acme.sh/acme.sh --issue --dns dns_ali -d $domain -d "*.$domain" --dns-conf "$api_ini" --debug
+            /root/.acme.sh/acme.sh --issue --dns dns_ali -d "$domain" -d "*.$domain" --dns-conf "$api_ini" --debug
             ;;
         *)
             echo "Invalid method selected. Please choose 'nginx', 'cf', or 'ali'."
