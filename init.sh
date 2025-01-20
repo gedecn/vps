@@ -784,10 +784,9 @@ http {
 }
 EOF
 
-# 检查 Nginx 配置文件是否有语法错误
-sudo nginx -t
+    # 检查 Nginx 配置文件是否有语法错误
+    sudo nginx -t
 }
-
 
 # 创建nginx站点配置文件的函数
 function create_nginx_site_config {
@@ -795,15 +794,6 @@ function create_nginx_site_config {
     local webroot=$2
     local ssl_cert=$3
     local ssl_key=$4
-
-    # 获取 PHP-FPM 版本
-    phpfpm=$(prompt_input "PHP-FPM version" "php8.3-fpm")
-
-    # 创建网站根目录
-    mkdir -p "$webroot/$domain"
-
-    # 删除默认的 Nginx 配置
-    sudo rm -f /etc/nginx/conf.d/default.conf
 
     # 定义通用的 Nginx 配置
     cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
@@ -821,6 +811,9 @@ EOF
 
     # 如果提供了 SSL 证书和密钥，配置 HTTPS
     if [[ -n $ssl_cert && -n $ssl_key ]]; then
+
+        phpfpm=$(prompt_input "PHP-FPM version" "php8.3-fpm")
+
         cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
 server {
     listen 80;
@@ -832,7 +825,7 @@ server {
     listen 443 ssl;
     server_name $domain www.$domain;
     root $webroot/$domain;
-    access_log /var/log/nginx/$domain.access.log;
+    access_log off;
 
     ssl_certificate $ssl_cert;
     ssl_certificate_key $ssl_key;
@@ -878,6 +871,12 @@ function nginx_install {
     echo -e "Package: *\nPin: origin nginx.org\nPin-Priority: 1000" | sudo tee /etc/apt/preferences.d/99nginx
 
     update_and_install nginx
+
+    # 创建网站根目录
+    mkdir -p "$webroot/$domain"
+
+    # 删除默认的 Nginx 配置
+    sudo rm -f /etc/nginx/conf.d/default.conf
 
     replace_nginx_user
     create_nginx_site_config $domain $webroot
