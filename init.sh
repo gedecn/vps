@@ -994,17 +994,25 @@ function ssl_install {
             # 获取 Cloudflare API 密钥
             api_key=$(prompt_input "Cloudflare API key" "")
             cloudflare_email=$(prompt_input "Cloudflare email" "")
-            export CF_Key="$api_key"
-            export CF_Email="$cloudflare_email"
-            /root/.acme.sh/acme.sh --issue --dns dns_cf -d $domain -d "www.$domain"
+            api_ini = "/root/.acme.sh/dnsapi/cloudflare.ini"
+            cat > "$api_ini" <<EOL
+CF_Key="$api_key"
+CF_Email="$cloudflare_email"
+EOL
+            chmod 600 "$api_ini"
+            /root/.acme.sh/acme.sh --issue --dns dns_cf -d $domain -d "*.$domain" --dns-conf "$api_ini" --debug
             ;;
         ali)
             # 获取 AliDNS API 密钥
             api_key=$(prompt_input "Ali DNS API key" "")
             api_secret=$(prompt_input "Ali DNS API secret" "")
-            export Ali_Key="$api_key"
-            export Ali_Secret="$api_secret"
-            /root/.acme.sh/acme.sh --issue --dns dns_ali -d $domain -d "www.$domain"
+            api_ini = "/root/.acme.sh/dnsapi/ali.ini"
+            cat > "$api_ini" <<EOL
+Ali_Key="$api_key"
+Ali_Secret="$api_secret"
+EOL
+            chmod 600 "$api_ini"
+            /root/.acme.sh/acme.sh --issue --dns dns_ali -d $domain -d "*.$domain" --dns-conf "$api_ini" --debug
             ;;
         *)
             echo "Invalid method selected. Please choose 'nginx', 'cf', or 'ali'."
