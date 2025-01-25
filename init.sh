@@ -799,7 +799,7 @@ function create_nginx_site_config {
     cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
 server {
     listen 80;
-    server_name $domain www.$domain;
+    server_name $domain;
     root $webroot/$domain;
     access_log off;
     index index.html index.htm;
@@ -817,13 +817,13 @@ EOF
         cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
 server {
     listen 80;
-    server_name $domain www.$domain;
+    server_name $domain;
     access_log off;
     return 301 https://\$host\$request_uri;
 }
 server {
     listen 443 ssl;
-    server_name $domain www.$domain;
+    server_name $domain;
     root $webroot/$domain;
     index index.php index.html index.htm;
     access_log off;
@@ -984,7 +984,7 @@ function ssl_install {
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain"
 
-    /root/.acme.sh/acme.sh --force --issue -d "$domain" -d "www.$domain" -w "$webroot/$domain" --debug
+    /root/.acme.sh/acme.sh --force --issue -d "$domain" -w "$webroot/$domain" --debug
     /root/.acme.sh/acme.sh --installcert -d "$domain" \
         --key-file "/etc/cert/$domain/private.key" \
         --fullchain-file "/etc/cert/$domain/cert.crt"
