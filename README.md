@@ -799,7 +799,7 @@ function create_nginx_site_config {
     cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
 server {
     listen 80;
-    server_name $domain www.$domain;
+    server_name $domain;
     root $webroot/$domain;
     access_log off;
     index index.html index.htm;
