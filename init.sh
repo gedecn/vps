@@ -891,7 +891,7 @@ function nginx_install {
 function php_install {
     phpfpm=$(prompt_input "php-fpm version" "php8.2-fpm")
 
-    update_and_install php $phpfpm php-redis php-mbstring php-mysql php-gd php-curl php-xml
+    update_and_install php "$phpfpm" "$phpfpm-redis" "$phpfpm-mbstring" "$phpfpm-mysql" "$phpfpm-gd" "$phpfpm-curl" "$phpfpm-xml"
 
     sudo systemctl restart $phpfpm
     sudo systemctl enable $phpfpm
