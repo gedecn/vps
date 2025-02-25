@@ -889,12 +889,15 @@ function nginx_install {
 
 # PHP安装和配置
 function php_install {
-    phpfpm=$(prompt_input "php-fpm version" "php8.2-fpm")
+    phpv=$(prompt_input "php version" "php8.4")
 
-    update_and_install php "$phpfpm" "$phpfpm-redis" "$phpfpm-mbstring" "$phpfpm-mysql" "$phpfpm-gd" "$phpfpm-curl" "$phpfpm-xml"
+    sudo apt update
+    sudo apt install -y ca-certificates lsb-release apt-transport-https
+    sudo add-apt-repository ppa:ondrej/php
+    update_and_install "$phpv-fpm" "$phpv-cli" "$phpv-redis" "$phpv-mbstring" "$phpv-mysql" "$phpv-gd" "$phpv-curl" "$phpv-xml"
 
-    sudo systemctl restart $phpfpm
-    sudo systemctl enable $phpfpm
+    sudo systemctl restart "$phpv-fpm"
+    sudo systemctl enable "$phpv-fpm"
 }
 
 # MySQL安装和配置
