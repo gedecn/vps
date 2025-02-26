@@ -835,7 +835,7 @@ server {
     ssl_prefer_server_ciphers off;
 
     location / {
-        try_files $uri $uri/ /index.php?$query_string;
+        try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
     location ~ \.php(/|$) {
