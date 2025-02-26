@@ -796,11 +796,11 @@ function create_nginx_site_config {
     local ssl_key=$4
 
     # 定义通用的 Nginx 配置
-    cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
+    cat > "/etc/nginx/conf.d/www.$domain.conf" <<EOF
 server {
     listen 80;
-    server_name $domain;
-    root $webroot/$domain;
+    server_name $domain www.$domain;
+    root $webroot/www.$domain;
     access_log off;
     index index.html index.htm;
     location / {
@@ -812,19 +812,19 @@ EOF
     # 如果提供了 SSL 证书和密钥，配置 HTTPS
     if [[ -n $ssl_cert && -n $ssl_key ]]; then
 
-        phpfpm=$(prompt_input "PHP-FPM version" "php8.2-fpm")
+        phpv=$(prompt_input "php version" "php8.2")
 
-        cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
+        cat > "/etc/nginx/conf.d/www.$domain.conf" <<EOF
 server {
     listen 80;
-    server_name $domain;
+    server_name $domain www.$domain;
     access_log off;
-    return 301 https://\$host\$request_uri;
+    return 301 https://www.$domain\$request_uri;
 }
 server {
     listen 443 ssl;
-    server_name $domain;
-    root $webroot/$domain;
+    server_name $domain www.$domain;
+    root $webroot/www.$domain;
     index index.php index.html index.htm;
     access_log off;
 
@@ -835,11 +835,11 @@ server {
     ssl_prefer_server_ciphers off;
 
     location / {
-        try_files \$uri \$uri/ =404;
+        try_files $uri $uri/ /index.php?$query_string;
     }
 
     location ~ \.php(/|$) {
-        fastcgi_pass unix:/run/php/$phpfpm.sock;
+        fastcgi_pass unix:/run/php/$phpv-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
         include fastcgi_params;
@@ -854,7 +854,7 @@ EOF
     if [ $? -eq 0 ]; then
         # 重载 Nginx 服务
         sudo systemctl reload nginx
-        echo "Nginx configuration for $domain has been created and reloaded successfully."
+        echo "Nginx configuration for www.$domain has been created and reloaded successfully."
     else
         echo "Error in Nginx configuration. Please check the logs."
     fi
@@ -863,7 +863,7 @@ EOF
 
 # Nginx安装和配置
 function nginx_install {
-    domain=$(prompt_input "your domain (xxx.com)" "")
+    domain=$(prompt_input "your domain (xxx.com NOT www.xxx.com)" "")
     webroot=$(prompt_input "nginx web root path" "/data/wwwroot")
 
     update_and_install curl gnupg2 ca-certificates lsb-release
@@ -875,7 +875,7 @@ function nginx_install {
     update_and_install nginx
 
     # 创建网站根目录
-    mkdir -p "$webroot/$domain"
+    mkdir -p "$webroot/www.$domain"
 
     # 删除默认的 Nginx 配置
     sudo rm -f /etc/nginx/conf.d/default.conf
@@ -889,7 +889,7 @@ function nginx_install {
 
 # PHP安装和配置
 function php_install {
-    phpv=$(prompt_input "php version" "php8.4")
+    phpv=$(prompt_input "php version" "php8.2")
 
     sudo apt update
     sudo apt install -y ca-certificates lsb-release apt-transport-https
@@ -972,7 +972,7 @@ function redis_install {
 function ssl_install {
     # 获取用户输入
     webroot=$(prompt_input "nginx web root path" "/data/wwwroot")
-    domain=$(prompt_input "Your domain (xxx.com)" "")
+    domain=$(prompt_input "Your domain (xxx.com None www)" "")
     email=$(prompt_input "Your domain email" "")
 
     create_nginx_site_config "$domain" "$webroot"
@@ -985,18 +985,18 @@ function ssl_install {
     /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
 
     # 创建证书存储目录
-    mkdir -p "/etc/cert/$domain"
+    mkdir -p "/etc/cert/www.$domain"
 
-    /root/.acme.sh/acme.sh --force --issue -d "$domain" -w "$webroot/$domain" --debug
+    /root/.acme.sh/acme.sh --force --issue -d "$domain" -w "$webroot/www.$domain" --debug
     /root/.acme.sh/acme.sh --installcert -d "$domain" \
-        --key-file "/etc/cert/$domain/private.key" \
-        --fullchain-file "/etc/cert/$domain/cert.crt"
+        --key-file "/etc/cert/www.$domain/private.key" \
+        --fullchain-file "/etc/cert/www.$domain/cert.crt"
 
     # 创建并重载 nginx 配置
-    create_nginx_site_config "$domain" "$webroot" "/etc/cert/$domain/cert.crt" "/etc/cert/$domain/private.key"
+    create_nginx_site_config "$domain" "$webroot" "/etc/cert/www.$domain/cert.crt" "/etc/cert/www.$domain/private.key"
     sudo systemctl restart nginx
 
-    echo "SSL certificate installation completed for $domain."
+    echo "SSL certificate installation completed for www.$domain."
 }
 
 function db_backup {
