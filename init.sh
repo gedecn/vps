@@ -716,8 +716,25 @@ function update_and_install {
     sudo apt install -y "$@"
 }
 
-# 替换Nginx配置文件中的用户的函数
-function replace_nginx_user {
+
+# Nginx安装和配置
+function nginx_install {
+    domain=$(prompt_input "your domain" "")
+    webroot=$(prompt_input "nginx web root path" "/data/wwwroot")
+
+    update_and_install curl gnupg2 ca-certificates lsb-release
+    curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
+
+    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian $(lsb_release -cs) nginx" | sudo tee /etc/apt/sources.list.d/nginx.list
+    echo -e "Package: *\nPin: origin nginx.org\nPin-Priority: 1000" | sudo tee /etc/apt/preferences.d/99nginx
+
+    update_and_install nginx
+
+    # 创建网站根目录
+    mkdir -p "$webroot/$domain"
+
+    # 删除默认的 Nginx 配置
+    sudo rm -f /etc/nginx/conf.d/default.conf
 
     NGINX_CONF="/etc/nginx/nginx.conf"
 
@@ -734,9 +751,7 @@ pid /var/run/nginx.pid;
 
 events {
     worker_connections 1024;
-    # Use multi_accept to accept as many connections as possible
     multi_accept on;
-    # Use epoll (Linux 2.6+), if your platform supports it
     use epoll;
 }
 
@@ -749,14 +764,14 @@ http {
                     '"\$http_user_agent" "\$http_x_forwarded_for"';
 
     access_log off;
-    error_log /dev/null crit;
+    error_log /var/log/nginx/error.log crit;
 
     sendfile on;
-    tcp_nopush on; # Enable to send files in one piece, without partial frames
-    tcp_nodelay on; # Enable to send responses at once, without waiting for more data
+    tcp_nopush on;
+    tcp_nodelay on;
 
     keepalive_timeout 65;
-    keepalive_requests 100; # Limit the number of requests that can be sent over a single keepalive connection
+    keepalive_requests 100;
 
     gzip on;
     gzip_disable "msie6";
@@ -767,122 +782,59 @@ http {
     gzip_http_version 1.1;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
-    # Increase client body size to allow for large file uploads
-    client_max_body_size 10M;
-
-    # Buffer sizes
+    client_max_body_size 100M;
     client_body_buffer_size 128k;
     client_header_buffer_size 1k;
     large_client_header_buffers 4 32k;
-
-    # Timeouts
-    client_body_timeout 12;
-    client_header_timeout 12;
-    send_timeout 10;
+    client_body_timeout 30;
+    client_header_timeout 30;
+    send_timeout 30;
 
     include /etc/nginx/conf.d/*.conf;
 }
 EOF
 
-    # 检查 Nginx 配置文件是否有语法错误
-    sudo nginx -t
-}
-
-# 创建nginx站点配置文件的函数
-function create_nginx_site_config {
-    local domain=$1
-    local webroot=$2
-    local ssl_cert=$3
-    local ssl_key=$4
-
-    # 定义通用的 Nginx 配置
-    cat > "/etc/nginx/conf.d/www.$domain.conf" <<EOF
+    cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
 server {
     listen 80;
-    server_name $domain www.$domain;
-    root $webroot/www.$domain;
+    server_name $domain;
+    root $webroot/$domain;
     access_log off;
+    #return 301 https://$domain\$request_uri;
     index index.html index.htm;
     location / {
         try_files \$uri \$uri/ =404;
     }
 }
-EOF
 
-    # 如果提供了 SSL 证书和密钥，配置 HTTPS
-    if [[ -n $ssl_cert && -n $ssl_key ]]; then
+#server {
+#    listen 443 ssl;
+#    server_name $domain;
+#    root $webroot/$domain;
+#    index index.php index.html index.htm;
+#    access_log off;
 
-        phpv=$(prompt_input "php version" "php8.2")
+#    ssl_certificate /etc/cert/$domain/cert.crt;
+#    ssl_certificate_key /etc/cert/$domain/private.key;
+#    ssl_protocols TLSv1.2 TLSv1.3;
+#    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
+#    ssl_prefer_server_ciphers off;
 
-        cat > "/etc/nginx/conf.d/www.$domain.conf" <<EOF
-server {
-    listen 80;
-    server_name $domain www.$domain;
-    access_log off;
-    return 301 https://www.$domain\$request_uri;
-}
-server {
-    listen 443 ssl;
-    server_name $domain www.$domain;
-    root $webroot/www.$domain;
-    index index.php index.html index.htm;
-    access_log off;
+#    location / {
+#        try_files \$uri \$uri/ /index.php?\$query_string;
+#    }
 
-    ssl_certificate $ssl_cert;
-    ssl_certificate_key $ssl_key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
-    ssl_prefer_server_ciphers off;
-
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
-
-    location ~ \.php(/|$) {
-        fastcgi_pass unix:/run/php/$phpv-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
-    }
-}
+#    location ~ \.php(/|$) {
+#        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+#        fastcgi_index index.php;
+#        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+#        include fastcgi_params;
+#    }
+#}
 EOF
     fi
 
-    # 测试 Nginx 配置是否正确
     sudo nginx -t
-
-    if [ $? -eq 0 ]; then
-        # 重载 Nginx 服务
-        sudo systemctl reload nginx
-        echo "Nginx configuration for www.$domain has been created and reloaded successfully."
-    else
-        echo "Error in Nginx configuration. Please check the logs."
-    fi
-}
-
-
-# Nginx安装和配置
-function nginx_install {
-    domain=$(prompt_input "your domain (xxx.com NOT www.xxx.com)" "")
-    webroot=$(prompt_input "nginx web root path" "/data/wwwroot")
-
-    update_and_install curl gnupg2 ca-certificates lsb-release
-    curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
-
-    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian $(lsb_release -cs) nginx" | sudo tee /etc/apt/sources.list.d/nginx.list
-    echo -e "Package: *\nPin: origin nginx.org\nPin-Priority: 1000" | sudo tee /etc/apt/preferences.d/99nginx
-
-    update_and_install nginx
-
-    # 创建网站根目录
-    mkdir -p "$webroot/www.$domain"
-
-    # 删除默认的 Nginx 配置
-    sudo rm -f /etc/nginx/conf.d/default.conf
-
-    replace_nginx_user
-    create_nginx_site_config "$domain" "$webroot"
-
     sudo systemctl enable nginx
     sudo systemctl start nginx
 }
@@ -951,6 +903,13 @@ thread_cache_size = 50              # 提高线程缓存，提高连接性能
 # 文件和表设置
 max_allowed_packet = 64M            # 增加最大允许的包大小
 open_files_limit = 65535            # 增加打开文件的限制
+#bind-address = 0.0.0.0
+character-set-server=utf8mb4
+collation-server=utf8mb4_unicode_ci
+default_authentication_plugin=mysql_native_password
+[client]
+default-character-set=utf8mb4
+default_authentication_plugin=mysql_native_password
 EOF
 
     sudo systemctl start mysql
@@ -971,32 +930,20 @@ function redis_install {
 # SSL证书安装和配置
 function ssl_install {
     # 获取用户输入
-    webroot=$(prompt_input "nginx web root path" "/data/wwwroot")
-    domain=$(prompt_input "Your domain (xxx.com None www)" "")
-    email=$(prompt_input "Your domain email" "")
-
-    create_nginx_site_config "$domain" "$webroot"
-    sudo systemctl restart nginx
+    cftoken=$(prompt_input "CF Token" "")
+    domain=$(prompt_input "Your domain root(None www)" "")
+    email=$(prompt_input "Your email" "")
 
     # 安装 acme.sh 如果未安装
     curl https://get.acme.sh | sh -s email="$email"
 
-    # 设置默认 CA 为 Let's Encrypt
-    /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt
-
     # 创建证书存储目录
-    mkdir -p "/etc/cert/www.$domain"
+    mkdir -p "/etc/cert/$domain"
 
-    /root/.acme.sh/acme.sh --force --issue -d "$domain" -d "www.$domain" -w "$webroot/www.$domain" --debug
-    /root/.acme.sh/acme.sh --installcert -d "$domain" -d "www.$domain" \
-        --key-file "/etc/cert/www.$domain/private.key" \
-        --fullchain-file "/etc/cert/www.$domain/cert.crt"
+    /root/.acme.sh/acme.sh --force --issue --server letsencrypt -d "$domain" -d "*.$domain" --dns dns_cf --keylength ec-256
+    /root/.acme.sh/acme.sh --installcert -d "$domain" --key-file "/etc/cert/$domain/private.key" --fullchain-file "/etc/cert/$domain/cert.crt"
 
-    # 创建并重载 nginx 配置
-    create_nginx_site_config "$domain" "$webroot" "/etc/cert/www.$domain/cert.crt" "/etc/cert/www.$domain/private.key"
-    sudo systemctl restart nginx
-
-    echo "SSL certificate installation completed for www.$domain."
+    echo "SSL certificate installation completed"
 }
 
 function db_backup {
