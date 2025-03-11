@@ -940,6 +940,7 @@ function ssl_install {
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain"
 
+    export CF_Token="$cftoken"
     /root/.acme.sh/acme.sh --force --issue --server letsencrypt -d "$domain" -d "*.$domain" --dns dns_cf --keylength ec-256
     /root/.acme.sh/acme.sh --installcert -d "$domain" --key-file "/etc/cert/$domain/private.key" --fullchain-file "/etc/cert/$domain/cert.crt"
 
