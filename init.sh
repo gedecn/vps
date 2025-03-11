@@ -832,7 +832,6 @@ server {
 #    }
 #}
 EOF
-    fi
 
     sudo nginx -t
     sudo systemctl enable nginx
