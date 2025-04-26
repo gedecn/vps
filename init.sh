@@ -42,9 +42,9 @@ function ssh_security {
 
     echo "配置SSH安全"
 
-    authorized_keys=$(prompt_input "ssh authorized_keys" "")
-    newport=$(prompt_input "ssh port" "22")
-    newpw=$(prompt_input "root password" "")
+    authorized_keys=$(prompt_input "SSH认证authorized_keys" "")
+    newport=$(prompt_input "SSH端口号" "22")
+    newpw=$(prompt_input "root用户新密码" "")
 
     echo "root:$newpw" | chpasswd
 
@@ -99,11 +99,11 @@ function sb_config {
     [ ! -d /etc/sing-box ] && mkdir -p /etc/sing-box
 
     # User inputs
-    domain_root=$(prompt_input "domain root" "")
-    domain=$(prompt_input "domain" "")
-    hysteria2_port=$(prompt_input "hysteria2 udp port" 1443)
-    vless_port=$(prompt_input "vless tcp port" 1443)
-    ss_port=$(prompt_input "shadowsocks port" 10443)
+    domain_root=$(prompt_input "SSL证书主域名" "")
+    domain=$(prompt_input "网站域名" "")
+    hysteria2_port=$(prompt_input "hysteria2端口" 1443)
+    vless_port=$(prompt_input "vless+reality端口" 1443)
+    ss_port=$(prompt_input "shadowsocks端口" 10443)
     uuid=$(prompt_input "uuid" "")
     reality_private=$(prompt_input "reality private_key" "")
     reality_short_id=$(prompt_input "reality short_id" "")
@@ -198,10 +198,10 @@ function traffic_check {
 
     echo "流量监控关机"
 
-    limit=$(prompt_input "monthly outbound traffic in GB" "")
-    server=$(prompt_input "server identification name" "")
-    bottoken=$(prompt_input "telegram bot token" "")
-    chatid=$(prompt_input "telegram bot chat_id" "")
+    limit=$(prompt_input "月度流量额度GB" "")
+    server=$(prompt_input "服务器识别代号" "")
+    bottoken=$(prompt_input "telegram机器人token" "")
+    chatid=$(prompt_input "telegram机器人chat_id" "")
 
     cat <<EOF > /root/traffic_check.sh
 #!/bin/bash
@@ -328,9 +328,9 @@ function update_and_install {
 
 # Nginx安装和配置
 function nginx_install {
-    domain_root=$(prompt_input "domain root" "")
-    domain=$(prompt_input "domain" "")
-    webroot=$(prompt_input "nginx web dir" "/data/wwwroot")
+    domain_root=$(prompt_input "SSL证书主域名" "")
+    domain=$(prompt_input "网站域名" "")
+    webroot=$(prompt_input "网站父目录" "/data/wwwroot")
 
     update_and_install curl gnupg2 ca-certificates lsb-release
     curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
@@ -466,7 +466,7 @@ function mysql_install {
 
     sudo systemctl stop mysql
 
-    datadir=$(prompt_input "datadir" "/data/mysql")
+    datadir=$(prompt_input "数据存储目录" "/data/mysql")
 
     if [ "$datadir" != "/var/lib/mysql" ]; then
         sudo mkdir -p $datadir
@@ -534,21 +534,38 @@ function redis_install {
 # SSL证书安装和配置
 function ssl_install {
     # 获取用户输入
-    cftoken=$(prompt_input "CF_Token" "")
-    domain_root=$(prompt_input "domain root" "")
-    email=$(prompt_input "email" "")
+    cftoken=$(prompt_input "CF Token" "")
+    domain_input=$(prompt_input "SSL证书域名(空格分隔，第一个为主域名)" "")
+    email=$(prompt_input "联系邮箱" "")
+
+    IFS=' ' read -r -a domains <<< "$domain_input"
+    domain_root="${domains[0]}"
 
     # 安装 acme.sh 如果未安装
-    curl https://get.acme.sh | sh -s email="$email"
+    if [ ! -f "/root/.acme.sh/acme.sh" ]; then
+        curl https://get.acme.sh | sh -s email="$email"
+    fi
 
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain_root"
 
-    export CF_Token="$cftoken"
-    /root/.acme.sh/acme.sh --force --issue --server letsencrypt -d "$domain_root" -d "*.$domain_root" --dns dns_cf --keylength ec-256
-    /root/.acme.sh/acme.sh --installcert -d "$domain_root" --key-file "/etc/cert/$domain_root/private.key" --fullchain-file "/etc/cert/$domain_root/cert.crt"
+    # 构建 -d 参数
+    domain_args=()
+    for domain in "${domains[@]}"; do
+        domain_args+=("-d" "$domain")
+    done
 
-    echo "SSL certificate installation completed"
+    export CF_Token="$cftoken"
+
+    # 申请证书
+    /root/.acme.sh/acme.sh --force --issue --server letsencrypt "${domain_args[@]}" --dns dns_cf --keylength ec-256
+
+    # 安装证书（以主域名作为目标）
+    /root/.acme.sh/acme.sh --installcert -d "$domain_root" \
+        --key-file "/etc/cert/$domain_root/private.key" \
+        --fullchain-file "/etc/cert/$domain_root/cert.crt"
+
+    echo "SSL certificate 申请完成"
 }
 
 function main_menu {
