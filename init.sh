@@ -87,6 +87,7 @@ function sb_install {
     echo "安装sing-box正式版"
     #安装sing-box
     bash <(curl -fsSL https://sing-box.app/deb-install.sh)
+    systemctl enable sing-box
 
     echo "✓ 操作完成"
 }
