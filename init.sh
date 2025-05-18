@@ -543,9 +543,7 @@ function ssl_install {
     domain_root="${domains[0]}"
 
     # 安装 acme.sh 如果未安装
-    if [ ! -f "/root/.acme.sh/acme.sh" ]; then
-        curl https://get.acme.sh | sh -s email="$email"
-    fi
+    curl https://get.acme.sh | sh -s email="$email"
 
     # 创建证书存储目录
     mkdir -p "/etc/cert/$domain_root"
