@@ -484,30 +484,30 @@ log-error	= /var/log/mysql/error.log
 skip-log-bin
 innodb_compression_level = 3
 # 缓存大小设置
-innodb_buffer_pool_size = 2G  # 设置为系统内存的 60%-80%，对于大多数工作负载
-innodb_log_file_size = 256M   # 设置适合的大小，通常为 128M 或 256M
-innodb_log_buffer_size = 16M  # 提高写性能
+innodb_buffer_pool_size = 512M  # 设置为系统内存的 60%-80%，对于大多数工作负载
+innodb_log_file_size = 128M   # 设置适合的大小，通常为 128M 或 256M
+innodb_log_buffer_size = 8M  # 提高写性能
 # 缓冲区和缓存设置
-table_open_cache = 400       # 增加表缓存大小
-table_definition_cache = 200 # 增加表定义缓存
+table_open_cache = 200       # 增加表缓存大小
+table_definition_cache = 100 # 增加表定义缓存
 # InnoDB 设置
 innodb_flush_log_at_trx_commit = 2  # 改善写性能，可能会略微降低数据一致性
 innodb_thread_concurrency = 0       # 让 InnoDB 自动管理线程并发
 # I/O 设置
-innodb_io_capacity = 2000           # 根据你的硬盘性能进行调整
-innodb_io_capacity_max = 4000
+innodb_io_capacity = 200           # 根据你的硬盘性能进行调整
+innodb_io_capacity_max = 400
 # 日志设置
 slow_query_log = 1
 slow_query_log_file = /var/log/mysql/slow.log
 long_query_time = 2                 # 记录执行时间超过 2 秒的查询
 # 其他设置
-tmp_table_size = 64M                # 增加临时表大小
-max_heap_table_size = 64M           # 增加内存临时表大小
-max_connections = 500               # 增加最大连接数
-thread_cache_size = 50              # 提高线程缓存，提高连接性能
+tmp_table_size = 32M                # 增加临时表大小
+max_heap_table_size = 32M           # 增加内存临时表大小
+max_connections = 200               # 增加最大连接数
+thread_cache_size = 30              # 提高线程缓存，提高连接性能
 # 文件和表设置
-max_allowed_packet = 64M            # 增加最大允许的包大小
-open_files_limit = 65535            # 增加打开文件的限制
+max_allowed_packet = 32M            # 增加最大允许的包大小
+open_files_limit = 10240            # 增加打开文件的限制
 #bind-address = 0.0.0.0
 character-set-server=utf8mb4
 collation-server=utf8mb4_unicode_ci
@@ -587,6 +587,7 @@ function main_menu {
     10)  安装php8
     11)  安装mysql8
     12)  安装redis7
+	14)  SWAP
     13)  退出
 EOF
 }
@@ -634,6 +635,9 @@ while [ 2 -gt 0 ]
           ;;
           12)
             redis_install
+          ;;
+		  14)
+            wget https://www.moerats.com/usr/shell/swap.sh && bash swap.sh
           ;;
           13)
             exit
