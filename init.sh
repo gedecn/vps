@@ -353,6 +353,18 @@ function redis_install {
     redis-server --version
 }
 
+# MariaDB安装和配置
+function mariadb_install {
+    sudo mkdir -p /etc/apt/keyrings
+    curl -fsSL https://mariadb.org/mariadb_release_signing_key.asc | sudo gpg --dearmor -o /etc/apt/keyrings/mariadb.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/mariadb.gpg] https://mariadb.org/repo/11.8.5/debian $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mariadb.list
+    sudo apt update
+    sudo apt install mariadb-server mariadb-client
+    sudo mariadb-secure-installation
+    sudo systemctl enable --now mariadb
+}
+
+
 function main_menu {
 
     #标准输入
@@ -368,6 +380,7 @@ function main_menu {
 6)  安装nginx
 7)  安装php8
 8)  安装redis7
+9)  安装mariadb
 0)  退出
 EOF
 }
@@ -403,6 +416,9 @@ while [ 2 -gt 0 ]
           ;;
           8)
             redis_install
+          ;;
+          9)
+            mariadb_install
           ;;
           0)
             exit
