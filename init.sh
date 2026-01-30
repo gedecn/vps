@@ -387,7 +387,7 @@ while [ 2 -gt 0 ]
             ssh_security
           ;;
           3)
-            ssl_install
+            sb_install
           ;;
           4)
             traffic_check
