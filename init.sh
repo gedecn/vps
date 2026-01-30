@@ -92,109 +92,6 @@ function sb_install {
     echo "✓ 操作完成"
 }
 
-function sb_config {
-
-    echo "配置sing-box"
-
-    # Create directory if not exists
-    [ ! -d /etc/sing-box ] && mkdir -p /etc/sing-box
-
-    # User inputs
-    domain_root=$(prompt_input "SSL证书主域名" "")
-    domain=$(prompt_input "网站域名" "")
-    hysteria2_port=$(prompt_input "hysteria2端口" 1443)
-    vless_port=$(prompt_input "vless+reality端口" 1443)
-    ss_port=$(prompt_input "shadowsocks端口" 10443)
-    uuid=$(prompt_input "uuid" "")
-    reality_private=$(prompt_input "reality private_key" "")
-    reality_short_id=$(prompt_input "reality short_id" "")
-
-    # Configure sing-box
-    cat <<EOF > /etc/sing-box/config.json
-{
-    "log": {
-        "disabled": true,
-        "level": "error",
-        "timestamp": true
-    },
-    "inbounds": [
-        {
-            "type": "hysteria2",
-            "listen": "::",
-            "listen_port": $hysteria2_port,
-            "users": [
-                {
-                    "password": "$uuid"
-                }
-            ],
-            "masquerade": "https://$domain",
-            "tls": {
-                "enabled": true,
-                "alpn": ["h3"],
-                "certificate_path": "/etc/cert/$domain_root/cert.crt",
-                "key_path": "/etc/cert/$domain_root/private.key"
-            }
-        },
-        {
-            "type": "vless",
-            "listen": "::",
-            "listen_port": $vless_port,
-            "users": [
-                {
-                    "uuid": "$uuid",
-                    "flow": "xtls-rprx-vision"
-                }
-            ],
-            "tls": {
-                "enabled": true,
-                "server_name": "$domain",
-                "reality": {
-                    "enabled": true,
-                    "handshake": {
-                        "server": "$domain",
-                        "server_port": 443
-                    },
-                    "private_key": "$reality_private",
-                    "short_id": ["$reality_short_id"]
-                }
-            }
-        },
-        {
-            "type": "shadowsocks",
-            "listen": "::",
-            "listen_port": $ss_port,
-            "method": "aes-256-gcm",
-            "password": "$uuid"
-        }
-    ],
-    "outbounds": [
-        {
-            "type": "direct"
-        }
-    ]
-}
-EOF
-
-    # Start sing-box service
-    systemctl enable sing-box
-    systemctl restart sing-box
-    systemctl status sing-box
-
-    echo "✓ 操作完成"
-}
-
-function sb_uninstall {
-
-    echo "卸载sing-box"
-
-    systemctl stop sing-box
-    systemctl disable sing-box
-    apt -y autoremove sing-box
-    rm -rf /etc/sing-box
-
-    echo "✓ 操作完成"
-}
-
 function traffic_check {
 
     echo "流量监控关机"
@@ -329,29 +226,18 @@ function update_and_install {
 
 # Nginx安装和配置
 function nginx_install {
-    domain_root=$(prompt_input "SSL证书主域名" "")
-    domain=$(prompt_input "网站域名" "")
-    webroot=$(prompt_input "网站父目录" "/data/wwwroot")
-
     update_and_install curl gnupg2 ca-certificates lsb-release
     curl -fsSL https://nginx.org/keys/nginx_signing.key | sudo gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg
-
     echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx.org/packages/debian $(lsb_release -cs) nginx" | sudo tee /etc/apt/sources.list.d/nginx.list
     echo -e "Package: *\nPin: origin nginx.org\nPin-Priority: 1000" | sudo tee /etc/apt/preferences.d/99nginx
-
     update_and_install nginx
-
     # 创建网站根目录
-    mkdir -p "$webroot/$domain"
-
+    mkdir -p "/data/wwwroot/default"
     # 删除默认的 Nginx 配置
     sudo rm -f /etc/nginx/conf.d/default.conf
-
     NGINX_CONF="/etc/nginx/nginx.conf"
-
     # 备份原始配置文件
     sudo cp $NGINX_CONF $NGINX_CONF.bak
-
     # 写入新的配置内容
     cat << EOF | sudo tee $NGINX_CONF > /dev/null
 user www-data;
@@ -405,38 +291,38 @@ http {
 }
 EOF
 
-    cat > "/etc/nginx/conf.d/$domain.conf" <<EOF
+    cat > "/etc/nginx/conf.d/default.conf" <<EOF
 server {
     listen 80;
-    server_name $domain;
-    root $webroot/$domain;
+    server_name _;
+    root /data/wwwroot/default;
     access_log off;
-    return 301 https://$domain\$request_uri;
+    return 301 https://www.yourdomain.com\$request_uri;
 }
-server {
-    listen 443 ssl;
-    server_name $domain;
-    root $webroot/$domain;
-    index index.php index.html index.htm;
-    access_log off;
+#server {
+#    listen 443 ssl;
+#    server_name www.yourdomain.com;
+#    root /data/wwwroot/www.yourdomain.com;
+#    index index.php index.html index.htm;
+#    access_log off;
 
-    ssl_certificate /etc/cert/$domain_root/cert.crt;
-    ssl_certificate_key /etc/cert/$domain_root/private.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
-    ssl_prefer_server_ciphers off;
+#    ssl_certificate /etc/cert/www.yourdomain.com/cert.crt;
+#    ssl_certificate_key /etc/cert/www.yourdomain.com/private.key;
+#    ssl_protocols TLSv1.2 TLSv1.3;
+#    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
+#    ssl_prefer_server_ciphers off;
 
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
+#    location / {
+#        try_files \$uri \$uri/ /index.php?\$query_string;
+#    }
 
-    location ~ \.php(/|$) {
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-        include fastcgi_params;
-    }
-}
+#    location ~ \.php(/|$) {
+#        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+#        fastcgi_index index.php;
+#        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+#        include fastcgi_params;
+#    }
+#}
 EOF
 
     sudo nginx -t
@@ -451,75 +337,10 @@ function php_install {
     sudo apt update
     sudo apt install -y ca-certificates lsb-release apt-transport-https
     sudo add-apt-repository ppa:ondrej/php
-    update_and_install "$phpv-fpm" "$phpv-cli" "$phpv-redis" "$phpv-mbstring" "$phpv-mysql" "$phpv-gd" "$phpv-curl" "$phpv-xml"
+    update_and_install "$phpv-fpm" "$phpv-cli" "$phpv-redis" "$phpv-mbstring" "$phpv-mysql" "$phpv-gd" "$phpv-curl" "$phpv-xml" "$phpv-imagick"
 
     sudo systemctl restart "$phpv-fpm"
     sudo systemctl enable "$phpv-fpm"
-}
-
-# MySQL安装和配置
-function mysql_install {
-    update_and_install gnupg
-    wget https://dev.mysql.com/get/mysql-apt-config_0.8.29-1_all.deb
-    sudo dpkg -i mysql-apt-config_0.8.29-1_all.deb
-    sudo apt -f install
-    update_and_install mysql-server
-
-    sudo systemctl stop mysql
-
-    datadir=$(prompt_input "数据存储目录" "/data/mysql")
-
-    if [ "$datadir" != "/var/lib/mysql" ]; then
-        sudo mkdir -p $datadir
-        sudo rsync -av /var/lib/mysql/ $datadir
-    fi
-
-    cat << EOF | sudo tee /etc/mysql/mysql.conf.d/mysqld.cnf > /dev/null
-[mysqld]
-pid-file	= /var/run/mysqld/mysqld.pid
-socket		= /var/run/mysqld/mysqld.sock
-#datadir	= /var/lib/mysql
-datadir		= $datadir
-log-error	= /var/log/mysql/error.log
-skip-log-bin
-innodb_compression_level = 3
-# 缓存大小设置
-innodb_buffer_pool_size = 512M  # 设置为系统内存的 60%-80%，对于大多数工作负载
-innodb_log_file_size = 128M   # 设置适合的大小，通常为 128M 或 256M
-innodb_log_buffer_size = 8M  # 提高写性能
-# 缓冲区和缓存设置
-table_open_cache = 200       # 增加表缓存大小
-table_definition_cache = 100 # 增加表定义缓存
-# InnoDB 设置
-innodb_flush_log_at_trx_commit = 2  # 改善写性能，可能会略微降低数据一致性
-innodb_thread_concurrency = 0       # 让 InnoDB 自动管理线程并发
-# I/O 设置
-innodb_io_capacity = 200           # 根据你的硬盘性能进行调整
-innodb_io_capacity_max = 400
-# 日志设置
-slow_query_log = 1
-slow_query_log_file = /var/log/mysql/slow.log
-long_query_time = 2                 # 记录执行时间超过 2 秒的查询
-# 其他设置
-tmp_table_size = 32M                # 增加临时表大小
-max_heap_table_size = 32M           # 增加内存临时表大小
-max_connections = 200               # 增加最大连接数
-thread_cache_size = 30              # 提高线程缓存，提高连接性能
-# 文件和表设置
-max_allowed_packet = 32M            # 增加最大允许的包大小
-open_files_limit = 10240            # 增加打开文件的限制
-#bind-address = 0.0.0.0
-character-set-server=utf8mb4
-collation-server=utf8mb4_unicode_ci
-default_authentication_plugin=mysql_native_password
-[client]
-default-character-set=utf8mb4
-default_authentication_plugin=mysql_native_password
-EOF
-
-    sudo systemctl start mysql
-    sudo systemctl enable mysql
-    sudo mysql_secure_installation
 }
 
 # Redis安装和配置
@@ -532,63 +353,22 @@ function redis_install {
     redis-server --version
 }
 
-# SSL证书安装和配置
-function ssl_install {
-    # 获取用户输入
-    cftoken=$(prompt_input "CF Token" "")
-    domain_input=$(prompt_input "SSL证书域名(空格分隔，第一个为主域名)" "")
-    email=$(prompt_input "联系邮箱" "")
-
-    IFS=' ' read -r -a domains <<< "$domain_input"
-    domain_root="${domains[0]}"
-
-    # 安装 acme.sh 如果未安装
-    curl https://get.acme.sh | sh -s email="$email"
-
-    # 创建证书存储目录
-    mkdir -p "/etc/cert/$domain_root"
-
-    # 构建 -d 参数
-    domain_args=()
-    for domain in "${domains[@]}"; do
-        domain_args+=("-d" "$domain")
-    done
-
-    export CF_Token="$cftoken"
-
-    # 申请证书
-    /root/.acme.sh/acme.sh --force --issue --server letsencrypt "${domain_args[@]}" --dns dns_cf --keylength ec-256
-
-    # 安装证书（以主域名作为目标）
-    /root/.acme.sh/acme.sh --installcert -d "$domain_root" \
-        --key-file "/etc/cert/$domain_root/private.key" \
-        --fullchain-file "/etc/cert/$domain_root/cert.crt"
-
-    echo "SSL certificate 申请完成"
-}
-
 function main_menu {
 
     #标准输入
     echo
     echo
     cat <<'EOF'
-
-    功能菜单:
-    1)  系统升级
-    2)  SSH安全配置
-    3)  申请ssl证书
-    4)  安装sing-box
-    5)  配置sing-box
-    6)  卸载sing-box
-    7)  流量tg监控
-    8)  修改hostname
-    9)  安装nginx
-    10)  安装php8
-    11)  安装mysql8
-    12)  安装redis7
-	14)  SWAP
-    13)  退出
+功能菜单:
+1)  系统升级
+2)  SSH安全配置
+3)  安装sing-box
+4)  流量tg监控
+5)  修改hostname
+6)  安装nginx
+7)  安装php8
+8)  安装redis7
+0)  退出
 EOF
 }
 
@@ -610,36 +390,21 @@ while [ 2 -gt 0 ]
             ssl_install
           ;;
           4)
-            sb_install
-          ;;
-          5)
-            sb_config
-          ;;
-          6)
-            sb_uninstall
-          ;;
-          7)
             traffic_check
           ;;
-          8)
+          5)
             hostname_change
           ;;
-          9)
+          6)
             nginx_install
           ;;
-          10)
+          7)
             php_install
           ;;
-          11)
-            mysql_install
-          ;;
-          12)
+          8)
             redis_install
           ;;
-		  14)
-            wget https://www.moerats.com/usr/shell/swap.sh && bash swap.sh
-          ;;
-          13)
+          0)
             exit
           ;;
           *)
