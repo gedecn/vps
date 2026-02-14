@@ -4,7 +4,7 @@ set -Eeuo pipefail
 LOG="/var/log/vps_init.log"
 
 ################################
-# 基础输出函数
+# 日志函数
 ################################
 log_msg() {
     local level="$1"; shift
@@ -29,7 +29,7 @@ require_root() {
 }
 
 ################################
-# 安全输入函数
+# 安全输入
 ################################
 prompt() {
     local msg="${1:-}"
@@ -51,28 +51,23 @@ sys_update() {
 
     export DEBIAN_FRONTEND=noninteractive
 
-    # 更新 & 升级
     apt-get update -y || err "apt-get update 失败"
     apt-get upgrade -y || warn "部分包升级失败（非致命）"
     apt-get autoremove -y
 
-    # 安装必要工具
     apt-get install -y \
         curl wget sudo cron unzip rsync dnsutils net-tools \
-        vnstat bc psmisc ca-certificates lsb-release
+        vnstat bc psmisc ca-certificates lsb-release jq
 
-    # 设置时区
     timedatectl set-timezone Asia/Shanghai || warn "设置时区失败"
 
-    # 启用 BBR
     cat > /etc/sysctl.d/99-bbr.conf <<EOF
 net.core.default_qdisc=fq
 net.ipv4.tcp_congestion_control=bbr
 EOF
     sysctl --system >/dev/null || warn "BBR 配置加载失败"
 
-    # 启用 cron
-    systemctl enable --now cron || warn "cron 服务启动失败"
+    systemctl enable --now cron || warn "cron 启动失败"
 
     info "✅ 系统初始化完成"
 }
@@ -92,14 +87,12 @@ ssh_security() {
     key=$(prompt "粘贴 authorized_keys 公钥（必须）" "")
     [[ -z "$key" ]] && err "公钥不能为空！否则将无法登录"
 
-    # 设置 root 的 SSH 密钥
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     echo "$key" > /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
     chown -R root:root /root/.ssh
 
-    # 写入 SSH 配置片段
     mkdir -p /etc/ssh/sshd_config.d
     cat > /etc/ssh/sshd_config.d/99-hardening.conf <<EOF
 Port $port
@@ -111,12 +104,10 @@ ClientAliveInterval 120
 ClientAliveCountMax 3
 EOF
 
-    # 验证配置
     if ! sshd -t; then
         err "SSH 配置语法错误，请手动修复后再重启"
     fi
 
-    # 重启 SSH（兼容不同发行版）
     if systemctl is-active --quiet sshd 2>/dev/null; then
         systemctl restart sshd
     elif systemctl is-active --quiet ssh 2>/dev/null; then
@@ -130,41 +121,44 @@ EOF
 }
 
 ################################
-# 幂等添加 crontab 任务
+# 幂等 crontab
 ################################
 cron_add() {
     local tag="$1"
     local job="$2"
     local tmp_cron="/tmp/cron.$$"
-
-    # 获取当前 crontab（忽略错误）
     (crontab -l 2>/dev/null || true) | grep -v "#$tag" > "$tmp_cron"
     echo "$job #$tag" >> "$tmp_cron"
     crontab "$tmp_cron"
     rm -f "$tmp_cron"
-
     info "计划任务已更新 ($tag)"
 }
 
 ################################
-# 流量监控（Telegram 报警 + 自动关机）
+# 流量监控（兼容 vnstat v1.x 和 v2+）
 ################################
 traffic_check() {
     info "配置流量监控..."
 
-    # 启用 vnstat
     systemctl enable --now vnstat || err "vnstat 服务启动失败"
 
-    # 自动检测主网卡
+    # 检测主网卡
     local iface
     iface=$(ip route show default | awk '{print $5; exit}')
-    if [[ -z "$iface" ]]; then
-        iface=$(ls /sys/class/net/ | grep -E '^(eth|ens|enp)' | head -n1)
-    fi
-    [[ -z "$iface" ]] && err "无法自动检测主网络接口"
+    [[ -z "$iface" ]] && iface=$(ls /sys/class/net/ | grep -E '^(eth|ens|enp|em)' | head -n1)
+    [[ -z "$iface" ]] && err "无法检测主网络接口"
 
-    # 初始化 vnstat 数据库
-    vnstat -u -i "$iface" 2>/dev/null || true
+    # 兼容 vnstat 版本
+    if vnstat --version 2>/dev/null | grep -qE '2\.|3\.'; then
+        info "检测到 vnstat v2+，使用 -u 初始化"
+        vnstat -u -i "$iface" 2>/dev/null || true
+    else
+        info "检测到 vnstat v1.x，依赖自动初始化"
+        systemctl restart vnstat
+        sleep 8
+        # 尝试触发数据库创建
+        vnstat -i "$iface" >/dev/null 2>&1 || true
+    fi
 
     # 用户输入
     local limit token chatid
@@ -176,24 +170,42 @@ traffic_check() {
     token=$(prompt "Telegram Bot Token" "")
     chatid=$(prompt "Telegram Chat ID" "")
 
-    if [[ -z "$token" ]] || [[ -z "$chatid" ]]; then
-        warn "未提供 Telegram 凭据，仅本地记录超限（不发送通知）"
-    fi
-
-    # 创建监控脚本
+    # 创建监控脚本（带容错）
     cat > /usr/local/bin/traffic_check.sh <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
-limit=$limit
 iface='$iface'
+limit=$limit
 token='$token'
 chatid='$chatid'
 
-# 获取当前月总流量（字节）
-traffic=\$(vnstat -i "\$iface" --json | jq -r '.interfaces[0].traffic.months[-1].tx + .interfaces[0].traffic.months[-1].rx // "0"') 2>/dev/null || traffic="0"
+# 容错：检查 vnstat 数据库是否存在
+if ! vnstat -i "\$iface" >/dev/null 2>&1; then
+    logger -t traffic_monitor "vnstat 数据库未就绪 for \$iface, skipping check"
+    exit 0
+fi
 
-# 转换为 GB（保留两位小数）
+# 获取当月总流量（字节）—— 兼容 v1/v2 JSON 输出
+if command -v jq >/dev/null; then
+    json=\$(vnstat -i "\$iface" --json 2>/dev/null || echo '{}')
+    tx=\$(echo "\$json" | jq -r '.interfaces[0].traffic.months[-1].tx // "0"')
+    rx=\$(echo "\$json" | jq -r '.interfaces[0].traffic.months[-1].rx // "0"')
+    traffic=\$((tx + rx))
+else
+    # fallback to oneline (less reliable)
+    line=\$(vnstat -i "\$iface" --oneline 2>/dev/null | head -n1)
+    if [[ -z "\$line" ]]; then
+        logger -t traffic_monitor "vnstat 无有效输出"
+        exit 0
+    fi
+    # oneline 格式: version;iface;...;rx_bytes;tx_bytes;...
+    IFS=';' read -ra F <<< "\$line"
+    rx=\${F[9]:-0}
+    tx=\${F[10]:-0}
+    traffic=\$((rx + tx))
+fi
+
 gb=\$(echo "scale=2; \$traffic / 1024 / 1024 / 1024" | bc -l)
 
 if (( \$(echo "\$gb > \$limit" | bc -l) )); then
@@ -210,12 +222,6 @@ EOF
 
     chmod +x /usr/local/bin/traffic_check.sh
 
-    # 安装依赖 jq（用于解析 JSON）
-    if ! command -v jq >/dev/null; then
-        apt-get install -y jq || warn "jq 安装失败，流量监控可能不准确"
-    fi
-
-    # 添加定时任务
     cron_add "traffic_monitor" "*/10 * * * * /usr/local/bin/traffic_check.sh"
 
     info "✅ 流量监控已启用（每10分钟检查一次）"
@@ -229,11 +235,9 @@ hostname_change() {
     new=$(prompt "新 hostname" "$(hostname)")
     [[ -z "$new" ]] && err "hostname 不能为空"
 
-    # 设置 hostname
     hostnamectl set-hostname "$new" || err "设置 hostname 失败"
 
-    # 更新 /etc/hosts
-    if grep -q "^127.0.1.1" /etc/hosts; then
+    if grep -q "^127\.0\.1\.1" /etc/hosts; then
         sed -i "s/^127\.0\.1\.1.*/127.0.1.1 $new/" /etc/hosts
     else
         echo "127.0.1.1 $new" >> /etc/hosts
@@ -243,7 +247,7 @@ hostname_change() {
 }
 
 ################################
-# 主菜单
+# 菜单
 ################################
 menu() {
     cat >&2 <<'EOF'
