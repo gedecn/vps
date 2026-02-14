@@ -1,286 +1,261 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
+#!/bin/bash
+#VPS常用脚本命令
+#bash <(wget -qO- https://raw.githubusercontent.com/gedecn/vps/main/init.sh)
 
-LOG="/var/log/vps_init.log"
-
-################################
-# 日志函数
-################################
-log_msg() {
-    local level="$1"; shift
-    local color prefix
-    case "$level" in
-        info)  color='\033[32m'; prefix='[INFO]' ;;
-        warn)  color='\033[33m'; prefix='[WARN]' ;;
-        error) color='\033[31m'; prefix='[ERR ]' ;;
-        *)     color='';        prefix="[UNK]" ;;
-    esac
-    printf "${color}%s\033[0m %s\n" "$prefix" "$*" | tee -a "$LOG" >&2
-}
-info()  { log_msg info  "$@"; }
-warn()  { log_msg warn  "$@"; }
-err()   { log_msg error "$@"; exit 1; }
-
-################################
-# 权限检查
-################################
-require_root() {
-    [[ $EUID -eq 0 ]] || err "必须以 root 用户运行"
+prompt_input() {
+    local prompt=$1
+    local default=$2
+    local value=""
+    while [[ -z "$value" ]]; do
+        # 打印提示信息并读取用户输入
+        read -r -p "$prompt [$default]: " value
+        value=${value:-$default}
+    done
+    echo $value
 }
 
-################################
-# 安全输入
-################################
-prompt() {
-    local msg="${1:-}"
-    local def="${2:-}"
-    local val
-    read -r -p "$msg [${def}]: " val </dev/tty
-    printf '%s\n' "${val:-$def}"
-}
+function sys_update {
 
-pause() {
-    read -rp "按回车继续..." _ </dev/tty
-}
+    echo "安装必须软件"
 
-################################
-# 系统初始化
-################################
-sys_update() {
-    info "开始系统更新与基础组件安装..."
+    apt update
+    apt upgrade -y
+    apt autoremove -y
+    apt install curl wget sudo psmisc cron unzip net-tools dnsutils rsync vnstat bc -y
+    timedatectl set-timezone Asia/Shanghai
 
-    export DEBIAN_FRONTEND=noninteractive
+    echo "开启BBR和优化网络参数"
 
-    apt-get update -y || err "apt-get update 失败"
-    apt-get upgrade -y || warn "部分包升级失败（非致命）"
-    apt-get autoremove -y
-
-    apt-get install -y \
-        curl wget sudo cron unzip rsync dnsutils net-tools \
-        vnstat bc psmisc ca-certificates lsb-release jq
-
-    timedatectl set-timezone Asia/Shanghai || warn "设置时区失败"
-
-    cat > /etc/sysctl.d/99-bbr.conf <<EOF
-net.core.default_qdisc=fq
-net.ipv4.tcp_congestion_control=bbr
+    #调整网络参数
+    cat <<EOF > /etc/sysctl.conf
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
 EOF
-    sysctl --system >/dev/null || warn "BBR 配置加载失败"
 
-    systemctl enable --now cron || warn "cron 启动失败"
+    #参数生效
+    sysctl -p
 
-    info "✅ 系统初始化完成"
+    echo "✓ 操作完成"
 }
 
-################################
-# SSH 安全加固
-################################
-ssh_security() {
-    info "配置 SSH 安全策略..."
+function ssh_security {
 
-    local port key
-    port=$(prompt "SSH 端口" "50440")
-    if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
-        err "无效的端口号：$port"
-    fi
+    echo "配置SSH安全"
 
-    key=$(prompt "粘贴 authorized_keys 公钥（必须）" "")
-    [[ -z "$key" ]] && err "公钥不能为空！否则将无法登录"
+    authorized_keys=$(prompt_input "SSH认证authorized_keys" "")
+    newport=$(prompt_input "SSH端口号" "50440")
+    #随机生成root密码
+    rootpw=$(openssl rand -base64 12)
+    newpw=$(prompt_input "root用户新密码" "$rootpw")
 
-    mkdir -p /root/.ssh
-    chmod 700 /root/.ssh
-    echo "$key" > /root/.ssh/authorized_keys
-    chmod 600 /root/.ssh/authorized_keys
-    chown -R root:root /root/.ssh
+    echo "root:$newpw" | chpasswd
 
-    mkdir -p /etc/ssh/sshd_config.d
-    cat > /etc/ssh/sshd_config.d/99-hardening.conf <<EOF
-Port $port
-PermitRootLogin prohibit-password
-PasswordAuthentication no
+    cat <<EOF > /etc/ssh/sshd_config
+Port $newport
+SyslogFacility AUTH
+LogLevel INFO
+LoginGraceTime 2m
+PermitRootLogin yes
+StrictModes yes
+MaxAuthTries 5
+MaxSessions 5
 PubkeyAuthentication yes
-MaxAuthTries 3
+PasswordAuthentication no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+UsePAM yes
+X11Forwarding yes
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
 ClientAliveInterval 120
-ClientAliveCountMax 3
+ClientAliveCountMax 10
+PidFile /var/run/sshd.pid
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 
-    if ! sshd -t; then
-        err "SSH 配置语法错误，请手动修复后再重启"
-    fi
+    # Write authorized keys
+    [ ! -d /root/.ssh ] && mkdir -p /root/.ssh
+    echo $authorized_keys > /root/.ssh/authorized_keys
 
-    if systemctl is-active --quiet sshd 2>/dev/null; then
-        systemctl restart sshd
-    elif systemctl is-active --quiet ssh 2>/dev/null; then
-        systemctl restart ssh
-    else
-        err "未检测到活跃的 SSH 服务"
-    fi
+    systemctl restart sshd
 
-    info "✅ SSH 已加固"
-    info "请使用新端口重新连接：ssh -p $port root@<your_ip>"
+    echo "✓ 操作完成"
 }
 
-################################
-# 幂等 crontab
-################################
-cron_add() {
-    local tag="$1"
-    local job="$2"
-    local tmp_cron="/tmp/cron.$$"
-    (crontab -l 2>/dev/null || true) | grep -v "#$tag" > "$tmp_cron"
-    echo "$job #$tag" >> "$tmp_cron"
-    crontab "$tmp_cron"
-    rm -f "$tmp_cron"
-    info "计划任务已更新 ($tag)"
-}
+function traffic_check {
 
-################################
-# 流量监控（兼容 vnstat v1.x 和 v2+）
-################################
-traffic_check() {
-    info "配置流量监控..."
+    echo "流量监控关机"
 
-    systemctl enable --now vnstat || err "vnstat 服务启动失败"
+    limit=$(prompt_input "月度流量额度GB" "")
+    server=$(prompt_input "服务器识别代号" "")
+    bottoken=$(prompt_input "telegram机器人token" "")
+    chatid=$(prompt_input "telegram机器人chat_id" "")
 
-    # 检测主网卡
-    local iface
-    iface=$(ip route show default | awk '{print $5; exit}')
-    [[ -z "$iface" ]] && iface=$(ls /sys/class/net/ | grep -E '^(eth|ens|enp|em)' | head -n1)
-    [[ -z "$iface" ]] && err "无法检测主网络接口"
+    cat <<EOF > /root/traffic_check.sh
+#!/bin/bash
 
-    # 兼容 vnstat 版本
-    if vnstat --version 2>/dev/null | grep -qE '2\.|3\.'; then
-        info "检测到 vnstat v2+，使用 -u 初始化"
-        vnstat -u -i "$iface" 2>/dev/null || true
-    else
-        info "检测到 vnstat v1.x，依赖自动初始化"
-        systemctl restart vnstat
-        sleep 8
-        # 尝试触发数据库创建
-        vnstat -i "$iface" >/dev/null 2>&1 || true
-    fi
-
-    # 用户输入
-    local limit token chatid
-    limit=$(prompt "月流量限制 (GB)" "500")
-    if ! [[ "$limit" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-        err "流量限制必须为数字"
-    fi
-
-    token=$(prompt "Telegram Bot Token" "")
-    chatid=$(prompt "Telegram Chat ID" "")
-
-    # 创建监控脚本（带容错）
-    cat > /usr/local/bin/traffic_check.sh <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-
-iface='$iface'
 limit=$limit
-token='$token'
-chatid='$chatid'
+server="$server"
+data_file="/root/traffic_data.txt"
 
-# 容错：检查 vnstat 数据库是否存在
-if ! vnstat -i "\$iface" >/dev/null 2>&1; then
-    logger -t traffic_monitor "vnstat 数据库未就绪 for \$iface, skipping check"
-    exit 0
-fi
+# 获取当前流量
+traffic=\$(vnstat --oneline b | awk -F';' '{print \$10}')
+traffic_gb=\$(echo "scale=2; \$traffic / 1024 / 1024 / 1024" | bc)
+echo "本月流量: \$traffic_gb GB, 流量限制: \$limit GB"
 
-# 获取当月总流量（字节）—— 兼容 v1/v2 JSON 输出
-if command -v jq >/dev/null; then
-    json=\$(vnstat -i "\$iface" --json 2>/dev/null || echo '{}')
-    tx=\$(echo "\$json" | jq -r '.interfaces[0].traffic.months[-1].tx // "0"')
-    rx=\$(echo "\$json" | jq -r '.interfaces[0].traffic.months[-1].rx // "0"')
-    traffic=\$((tx + rx))
+# 检查是否存在上次记录
+if [ -f "\$data_file" ]; then
+    read last_time last_traffic < "\$data_file"
+    current_time=\$(date +%s)
+    time_diff=\$((current_time - last_time))
+    
+    # 计算时间间隔（分钟）
+    time_diff_min=\$((time_diff / 60))
+    
+    # 计算每分钟消耗的流量（MB）
+    traffic_diff=\$(echo "\$traffic - \$last_traffic" | bc)
+    if [ "\$time_diff_min" -gt 0 ]; then
+        consumption_per_min=\$(echo "scale=2; \$traffic_diff / \$time_diff_min / 1024 / 1024" | bc)  # 转换为MB
+    else
+        consumption_per_min=0
+    fi
+    
+    echo "上次流量: \$(echo "scale=2; \$last_traffic / 1024 / 1024 / 1024" | bc) GB, 时间间隔: \$time_diff_min 分钟, 每分钟消耗: \$consumption_per_min MB"
 else
-    # fallback to oneline (less reliable)
-    line=\$(vnstat -i "\$iface" --oneline 2>/dev/null | head -n1)
-    if [[ -z "\$line" ]]; then
-        logger -t traffic_monitor "vnstat 无有效输出"
-        exit 0
-    fi
-    # oneline 格式: version;iface;...;rx_bytes;tx_bytes;...
-    IFS=';' read -ra F <<< "\$line"
-    rx=\${F[9]:-0}
-    tx=\${F[10]:-0}
-    traffic=\$((rx + tx))
+    echo "这是第一次运行，未找到上次记录"
 fi
 
-gb=\$(echo "scale=2; \$traffic / 1024 / 1024 / 1024" | bc -l)
+# 更新记录
+echo "\$current_time \$traffic" > "\$data_file"
 
-if (( \$(echo "\$gb > \$limit" | bc -l) )); then
-    msg="⚠️ VPS 流量超限：\$gb GB / \$limit GB"
-    logger -t traffic_monitor "\$msg"
-    if [[ -n "\$token" ]] && [[ -n "\$chatid" ]]; then
-        curl -s -m 10 -X POST "https://api.telegram.org/bot\$token/sendMessage" \\
-            -d "chat_id=\$chatid" \\
-            -d "text=\$msg" >/dev/null
-    fi
+# 检查流量限制
+if (( \$(echo "\$traffic_gb > \$limit" | bc -l) )); then
+    echo "月流量超过 \$limit GB，自动关机"
     shutdown -h now
 fi
+
+# 计算进度条
+usage_ratio=\$(echo "scale=2; \$traffic_gb / \$limit * 100" | bc)
+
+# 推送Telegram Bot
+curl -X POST "https://api.telegram.org/bot$bottoken/sendMessage" \
+-F "chat_id=$chatid" \
+-F "text=\${server} 已用 \${traffic_gb} / \${limit} GB / \${usage_ratio}%"
 EOF
 
-    chmod +x /usr/local/bin/traffic_check.sh
+    #增加执行权限
+    chmod +x /root/traffic_check.sh
 
-    cron_add "traffic_monitor" "*/10 * * * * /usr/local/bin/traffic_check.sh"
+    # Prompt user for interval in minutes
+    interval=$(prompt_input "interval in minutes" "10")
+    #添加计划任务
+    cron_add "traffic_check" "*/$interval * * * * /root/traffic_check.sh > /root/traffic_check.log"
 
-    info "✅ 流量监控已启用（每10分钟检查一次）"
+    echo "✓ 操作完成"
 }
 
-################################
-# 修改 hostname
-################################
-hostname_change() {
-    local new
-    new=$(prompt "新 hostname" "$(hostname)")
-    [[ -z "$new" ]] && err "hostname 不能为空"
+function cron_add {
+    local fstr=$1
+    local rstr=$2
 
-    hostnamectl set-hostname "$new" || err "设置 hostname 失败"
-
-    if grep -q "^127\.0\.1\.1" /etc/hosts; then
-        sed -i "s/^127\.0\.1\.1.*/127.0.1.1 $new/" /etc/hosts
+    existing_job=$(crontab -l | grep "$fstr")
+    if [ -z "$existing_job" ]; then
+        # Add a new cron job to run /root/check.sh at the specified interval
+        (crontab -l ; echo "$rstr") | crontab -
+        echo "已添加计划任务"
     else
-        echo "127.0.1.1 $new" >> /etc/hosts
+        # Modify the existing cron job to run /root/check.sh at the specified interval
+        (crontab -l | sed "s|.*$fstr.*|$rstr|g") | crontab -
+        echo "已修改计划任务"
     fi
 
-    info "✅ hostname 已修改为：$new"
+    #展示计划任务
+    crontab -l    
 }
 
-################################
-# 菜单
-################################
-menu() {
-    cat >&2 <<'EOF'
+function hostname_change {
+    echo "修改hostname"
 
-==============================
- VPS 初始化工具
-==============================
-1. 系统初始化
-2. SSH 安全加固
-3. 流量监控 (Telegram)
-4. 修改 hostname
-0. 退出
+    NEW_HOSTNAME=$(prompt_input "hostname" "")
+
+    # 显示当前主机名
+    CURRENT_HOSTNAME=$(hostname)
+    echo "当前主机名: $CURRENT_HOSTNAME"
+
+    # 更新 /etc/hostname 文件
+    echo "$NEW_HOSTNAME" > /etc/hostname
+    echo "/etc/hostname 文件已更新为: $NEW_HOSTNAME"
+
+    # 更新 /etc/hosts 文件
+    if grep -q "$CURRENT_HOSTNAME" /etc/hosts; then
+    sed -i "s/$CURRENT_HOSTNAME/$NEW_HOSTNAME/g" /etc/hosts
+    echo "/etc/hosts 文件中的 $CURRENT_HOSTNAME 已更新为 $NEW_HOSTNAME"
+    else
+    echo "127.0.1.1   $NEW_HOSTNAME" >> /etc/hosts
+    echo "$NEW_HOSTNAME 已添加到 /etc/hosts 文件"
+    fi
+
+    # 使用 hostnamectl 设置新的主机名（适用于 systemd）
+    hostnamectl set-hostname "$NEW_HOSTNAME"
+    echo "hostnamectl 已将主机名设置为: $NEW_HOSTNAME"
+
+    # 确保主机名立即生效
+    hostname "$NEW_HOSTNAME"
+    echo "主机名已立即生效: $NEW_HOSTNAME"
+
+    echo "✓ 操作完成"
+}
+
+
+# 更新系统包索引和安装包的函数
+function update_and_install {
+    sudo apt update
+    sudo apt install -y "$@"
+}
+
+function main_menu {
+
+    #标准输入
+    echo
+    echo
+    cat <<'EOF'
+功能菜单:
+1)  系统升级
+2)  SSH安全配置
+3)  流量tg监控
+4)  修改hostname
+0)  退出
 EOF
 }
 
-################################
-# 主程序
-################################
-main() {
-    require_root
 
-    while true; do
-        menu
-        read -rp "请选择 (0-4): " choice </dev/tty
-        case "$choice" in
-            1) sys_update; pause ;;
-            2) ssh_security; pause ;;
-            3) traffic_check; pause ;;
-            4) hostname_change; pause ;;
-            0) info "退出"; exit 0 ;;
-            *) warn "无效选项，请重试" ;;
-        esac
-    done
-}
-
-main "$@"
+while [ 2 -gt 0 ]
+  do
+  main_menu
+  echo -n "请选择: "
+  read main_choice
+  echo
+  case $main_choice in
+          1)
+            sys_update
+          ;;
+          2)
+            ssh_security
+          ;;
+          3)
+            traffic_check
+          ;;
+          4)
+            hostname_change
+          ;;
+          0)
+            exit
+          ;;
+          *)
+          clear
+          continue
+          ;;
+  esac
+done
