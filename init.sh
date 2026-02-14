@@ -23,6 +23,7 @@ function sys_update {
     apt autoremove -y
     apt install curl wget sudo psmisc cron unzip net-tools dnsutils rsync vnstat bc -y
     timedatectl set-timezone Asia/Shanghai
+    curl -fsSL https://get.docker.com | bash -s docker
 
     echo "开启BBR和优化网络参数"
 
