@@ -1,44 +1,52 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-############################
-# 基础工具
-############################
-
 LOG="/var/log/vps_init.log"
 
-info()  { echo -e "\033[32m[INFO]\033[0m  $*" | tee -a "$LOG"; }
-warn()  { echo -e "\033[33m[WARN]\033[0m  $*" | tee -a "$LOG"; }
-error() { echo -e "\033[31m[ERR ]\033[0m  $*" | tee -a "$LOG"; exit 1; }
+################################
+# 基础输出
+################################
+info(){ echo -e "\033[32m[INFO]\033[0m $*" | tee -a "$LOG" > /dev/tty; }
+warn(){ echo -e "\033[33m[WARN]\033[0m $*" | tee -a "$LOG" > /dev/tty; }
+err(){  echo -e "\033[31m[ERR ]\033[0m $*" | tee -a "$LOG" > /dev/tty; exit 1; }
 
-require_root() {
-    [[ $EUID -ne 0 ]] && error "必须 root 运行"
+require_root(){
+    [[ $EUID -ne 0 ]] && err "必须使用 root 运行"
 }
 
-prompt() {
+################################
+# 关键：从终端读取输入
+################################
+prompt(){
     local msg="$1"
     local def="${2:-}"
     local val
-
-    read -r -p "$msg [$def]: " val
+    read -r -p "$msg [$def]: " val < /dev/tty
     echo "${val:-$def}"
 }
 
-############################
-# 系统更新 + BBR
-############################
-sys_update() {
+pause(){
+    read -rp "按回车继续..." _ < /dev/tty
+}
 
-    info "更新系统并安装基础软件"
+################################
+# 系统初始化
+################################
+sys_update(){
+
+    info "更新系统并安装基础组件..."
 
     export DEBIAN_FRONTEND=noninteractive
+
     apt-get update -y
     apt-get upgrade -y
+    apt-get autoremove -y
+
     apt-get install -y \
         curl wget sudo cron unzip rsync dnsutils net-tools \
         vnstat bc psmisc ca-certificates
 
-    timedatectl set-timezone Asia/Shanghai
+    timedatectl set-timezone Asia/Shanghai || true
 
     info "启用 BBR"
 
@@ -49,13 +57,17 @@ EOF
 
     sysctl --system
 
+    systemctl enable cron --now
+
     info "系统初始化完成"
 }
 
-############################
-# SSH安全配置
-############################
-ssh_security() {
+################################
+# SSH 安全
+################################
+ssh_security(){
+
+    info "配置 SSH 安全"
 
     local port
     port=$(prompt "SSH端口" "50440")
@@ -63,14 +75,12 @@ ssh_security() {
     local key
     key=$(prompt "粘贴 authorized_keys 公钥" "")
 
-    [[ -z "$key" ]] && error "必须提供公钥，否则会锁死 SSH"
+    [[ -z "$key" ]] && err "必须提供公钥！否则你会直接锁死服务器"
 
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     echo "$key" > /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
-
-    info "写入 SSH drop-in 配置"
 
     mkdir -p /etc/ssh/sshd_config.d
 
@@ -84,29 +94,33 @@ ClientAliveInterval 120
 ClientAliveCountMax 3
 EOF
 
-    sshd -t || error "SSH配置错误，未应用"
-    systemctl restart ssh
+    sshd -t || err "SSH配置错误，未应用"
 
-    info "SSH加固完成，端口: $port"
+    systemctl restart ssh || systemctl restart sshd
+
+    info "SSH已加固完成"
+    info "请重新连接: ssh -p $port root@你的IP"
 }
 
-############################
-# cron 管理（幂等）
-############################
-cron_add() {
+################################
+# cron 幂等
+################################
+cron_add(){
 
     local tag="$1"
     local job="$2"
 
     (crontab -l 2>/dev/null | grep -v "#$tag"; echo "$job #$tag") | crontab -
 
-    info "计划任务已更新: $tag"
+    info "计划任务已更新 ($tag)"
 }
 
-############################
+################################
 # 流量监控
-############################
-traffic_check() {
+################################
+traffic_check(){
+
+    info "配置流量监控"
 
     systemctl enable vnstat --now
 
@@ -119,12 +133,12 @@ traffic_check() {
     limit=$(prompt "月流量限制(GB)" "500")
 
     local token
-    token=$(prompt "Telegram bot token" "")
+    token=$(prompt "Telegram Bot Token" "")
 
     local chatid
-    chatid=$(prompt "Telegram chat_id" "")
+    chatid=$(prompt "Telegram Chat ID" "")
 
-    cat >/usr/local/bin/traffic_check.sh <<EOF
+cat >/usr/local/bin/traffic_check.sh <<EOF
 #!/usr/bin/env bash
 limit=$limit
 iface=$iface
@@ -143,44 +157,60 @@ EOF
     chmod +x /usr/local/bin/traffic_check.sh
 
     cron_add "traffic_monitor" "*/10 * * * * /usr/local/bin/traffic_check.sh"
+
+    info "流量监控已启用"
 }
 
-############################
+################################
 # hostname
-############################
-hostname_change() {
+################################
+hostname_change(){
 
     local new
     new=$(prompt "新hostname" "")
 
     hostnamectl set-hostname "$new"
-    sed -i "s/127.0.1.1.*/127.0.1.1 $new/g" /etc/hosts
+
+    if grep -q "127.0.1.1" /etc/hosts; then
+        sed -i "s/127.0.1.1.*/127.0.1.1 $new/g" /etc/hosts
+    else
+        echo "127.0.1.1 $new" >> /etc/hosts
+    fi
 
     info "hostname 已修改为 $new"
 }
 
-############################
+################################
 # 菜单
-############################
-menu() {
-    echo
-    echo "1. 系统初始化"
-    echo "2. SSH安全加固"
-    echo "3. 流量监控"
-    echo "4. 修改hostname"
-    echo "0. 退出"
+################################
+menu(){
+cat > /dev/tty <<'EOF'
+
+==============================
+ VPS 初始化工具
+==============================
+1. 系统初始化
+2. SSH安全加固
+3. 流量监控(Telegram)
+4. 修改hostname
+0. 退出
+
+EOF
 }
 
+################################
+# 主循环
+################################
 require_root
 
 while true; do
     menu
-    read -rp "选择: " c
+    read -rp "请选择: " c < /dev/tty
     case $c in
-        1) sys_update ;;
-        2) ssh_security ;;
-        3) traffic_check ;;
-        4) hostname_change ;;
+        1) sys_update; pause ;;
+        2) ssh_security; pause ;;
+        3) traffic_check; pause ;;
+        4) hostname_change; pause ;;
         0) exit 0 ;;
     esac
 done
