@@ -21,7 +21,8 @@ function sys_update {
     apt update
     apt upgrade -y
     apt autoremove -y
-    apt install curl wget sudo psmisc cron unzip net-tools dnsutils rsync vnstat bc -y
+    apt install curl wget sudo psmisc cron unzip -y
+    #apt install vnstat bc net-tools dnsutils
     timedatectl set-timezone Asia/Shanghai
     curl -fsSL https://get.docker.com | bash -s docker
 
