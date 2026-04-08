@@ -24,7 +24,7 @@ function sys_update {
     apt install curl wget sudo psmisc cron unzip -y
     #apt install vnstat bc net-tools dnsutils
     timedatectl set-timezone Asia/Shanghai
-    curl -fsSL https://get.docker.com | bash -s docker
+    #curl -fsSL https://get.docker.com | bash -s docker
 
     echo "开启BBR和优化网络参数"
 
