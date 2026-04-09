@@ -65,11 +65,11 @@ echo "=============================="
 echo "= 输入参数"
 echo "=============================="
 
-prompt_input SSH_PUBLIC_KEY "SSH 公钥" true
-prompt_input CF_Token "Cloudflare API Token" true
+prompt_input SSH_PUBLIC_KEY "SSH 公钥" false
+prompt_input CF_Token "Cloudflare API Token" false
 prompt_input DOMAIN "域名" false '^[a-zA-Z0-9.-]+$'
 prompt_input UUID "用户UUID" false '^[0-9a-fA-F-]{36}$'
-prompt_input PRIKEY "reality private key" true
+prompt_input PRIKEY "reality private key" false
 prompt_input SID "reality short id" false
 
 
