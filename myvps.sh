@@ -5,38 +5,24 @@ set -Eeuo pipefail
 
 # ===== 函数定义区 =====
 
-prompt_input() {
-    local var_name="$1"
-    local prompt_text="$2"
-    local is_secret="${3:-false}"
-    local regex="${4:-}"   # 可选：输入校验（正则）
-
-    local input
-
-    while true; do
-        if [ "$is_secret" = "true" ]; then
-            read -rsp "$prompt_text: " input
-            echo
-        else
-            read -rp "$prompt_text: " input
-        fi
-
-        # 判空
-        if [ -z "$input" ]; then
-            echo "❌ 不能为空"
+read_multivar() {
+    echo "请一次性输入变量，每个变量用 #VAR_NAME 注释标记，按 Ctrl+D 完成："
+    local var_name=""
+    while IFS= read -r line; do
+        line="${line#"${line%%[![:space:]]*}"}"   # 去掉前导空格
+        line="${line%"${line##*[![:space:]]}"}"   # 去掉尾随空格
+        if [[ -z "$line" ]]; then
             continue
         fi
-
-        # 正则校验（可选）
-        if [ -n "$regex" ] && ! [[ "$input" =~ $regex ]]; then
-            echo "❌ 格式不正确"
+        if [[ "$line" =~ ^#([A-Z_]+)$ ]]; then
+            var_name="${BASH_REMATCH[1]}"
             continue
         fi
-
-        # 赋值
-        printf -v "$var_name" '%s' "$input"
-        export "$var_name"
-        break
+        if [[ -n "$var_name" ]]; then
+            # 自动 export
+            export "$var_name"="$line"
+            var_name=""
+        fi
     done
 }
 
@@ -65,12 +51,8 @@ echo "=============================="
 echo "= 输入参数"
 echo "=============================="
 
-prompt_input SSH_PUBLIC_KEY "SSH 公钥" false
-prompt_input CF_Token "Cloudflare API Token" false
-prompt_input DOMAIN "域名" false '^[a-zA-Z0-9.-]+$'
-prompt_input UUID "用户UUID" false '^[0-9a-fA-F-]{36}$'
-prompt_input PRIKEY "reality private key" false
-prompt_input SID "reality short id" false
+# 调用函数
+read_multivar
 
 
 echo "=============================="
