@@ -1,0 +1,11 @@
+services:
+  acme:
+    image: neilpang/acme.sh:latest
+    container_name: acme
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    volumes:
+      - /data/acme:/acme.sh
+      - /data/cert:/cert
+    command: daemon
