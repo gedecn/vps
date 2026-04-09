@@ -9,4 +9,6 @@ services:
     command: -C /etc/sing-box/ run
     ports:
       - "443:443/tcp"
+      - "8443:8443/tcp"
       - "443:443/udp"
+      - "8443:8443/udp"
