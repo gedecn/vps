@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+#bash <(wget -qO- https://raw.githubusercontent.com/gedecn/vps/main/myvps.sh)
+
 set -Eeuo pipefail
 
 # ===== 函数定义区 =====
