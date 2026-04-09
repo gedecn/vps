@@ -13,13 +13,13 @@
             "users": [
                 {
                     "name": "user_hysteria2",
-                    "password": "<uuid>"
+                    "password": "${uuid}"
                 }
             ],
             "tls": {
                 "enabled": true,
-                "certificate_path": "/etc/cert/<domain>.pem",
-                "key_path": "/etc/cert/<domain>.key",
+                "certificate_path": "/etc/cert/${domain}.pem",
+                "key_path": "/etc/cert/${domain}.key",
                 "alpn": [
                     "h3"
                 ]
@@ -34,7 +34,7 @@
             "users": [
                 {
                     "name": "user_reality",
-                    "uuid": "<uuid>",
+                    "uuid": "${uuid}",
                     "flow": "xtls-rprx-vision"
                 }
             ],
@@ -47,9 +47,9 @@
                         "server": "cdn-dynmedia-1.microsoft.com",
                         "server_port": 443
                     },
-                    "private_key": "<private_key>",
+                    "private_key": "${private_key}",
                     "short_id": [
-                        "<short_id>"
+                        "${short_id}"
                     ]
                 }
             }
