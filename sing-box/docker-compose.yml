@@ -1,0 +1,12 @@
+services:
+  sing-box:
+    image: ghcr.io/sagernet/sing-box
+    container_name: sing-box
+    restart: always
+    volumes:
+      - ./:/etc/sing-box
+      - /data/cert:/etc/cert
+    command: -C /etc/sing-box/ run
+    ports:
+      - "443:443/tcp"
+      - "443:443/udp"
