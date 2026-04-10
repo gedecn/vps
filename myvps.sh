@@ -232,7 +232,7 @@ curl -fsSL "https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/acme/do
 
 docker compose pull
 docker compose run --rm acme --set-default-ca --server letsencrypt
-docker compose run --rm acme --issue --dns dns_cf -d $DOMAIN -d "*.$DOMAIN" --keylength ec-256
+docker compose run --rm -e CF_Token="$CF_Token" acme --issue --dns dns_cf -d $DOMAIN -d "*.$DOMAIN" --keylength ec-256
 docker compose run --rm acme --install-cert -d $DOMAIN --ecc --key-file /cert/$DOMAIN.key --fullchain-file /cert/$DOMAIN.pem
 docker compose up -d
 
