@@ -1,118 +1,34 @@
-#!/usr/bin/env bash
-#bash <(wget -qO- https://raw.githubusercontent.com/gedecn/vps/main/myvps.sh)
+#!/bin/bash
+#VPS常用脚本命令
+#bash <(wget -qO- https://raw.githubusercontent.com/gedecn/vps/main/init.sh)
 
-set -Eeuo pipefail
-
-# ===== 函数定义区 =====
-
-read_multivar() {
-    echo "请一次性输入变量，每个变量用 #VAR_NAME 注释标记，按 Ctrl+D 完成："
-    local var_name=""
-    while IFS= read -r line; do
-        line="${line#"${line%%[![:space:]]*}"}"   # 去掉前导空格
-        line="${line%"${line##*[![:space:]]}"}"   # 去掉尾随空格
-        if [[ -z "$line" ]]; then
-            continue
-        fi
-        if [[ "$line" =~ ^#([A-Z_]+)$ ]]; then
-            var_name="${BASH_REMATCH[1]}"
-            continue
-        fi
-        if [[ -n "$var_name" ]]; then
-            # 自动 export
-            export "$var_name"="$line"
-            var_name=""
-        fi
+prompt_input() {
+    local prompt=$1
+    local default=$2
+    local value=""
+    while [[ -z "$value" ]]; do
+        # 打印提示信息并读取用户输入
+        read -r -p "$prompt [$default]: " value
+        value=${value:-$default}
     done
+    echo $value
 }
 
-enter_dir() {
-    local dir="$1"
+function sys_update {
 
-    if [ ! -d "$dir" ]; then
-        echo "📁 创建目录: $dir"
-        mkdir -p "$dir"
-    fi
+    echo "安装必须软件"
 
-    cd "$dir" || {
-        echo "❌ 无法进入目录: $dir"
-        exit 1
-    }
-}
+    apt update
+    apt upgrade -y
+    apt autoremove -y
+    apt install curl wget sudo psmisc cron unzip vnstat bc net-tools dnsutils -y
+    timedatectl set-timezone Asia/Shanghai
+    #curl -fsSL https://get.docker.com | bash -s docker
 
-echo "=============================="
-echo "= root 检查"
-echo "=============================="
+    echo "开启BBR和优化网络参数"
 
-[ "$(id -u)" = "0" ] || { echo "必须 root"; exit 1; }
-enter_dir "/opt"
-
-echo "=============================="
-echo "= 输入参数"
-echo "=============================="
-
-# 调用函数
-read_multivar
-
-
-echo "=============================="
-echo "= 系统更新"
-echo "=============================="
-
-export DEBIAN_FRONTEND=noninteractive
-
-apt-get update
-apt-get upgrade -y
-apt-get autoremove -y
-
-apt-get install -y curl wget sudo cron unzip vnstat bc net-tools dnsutils psmisc openssl ca-certificates ufw fail2ban
-
-echo "=============================="
-echo "= 时区"
-echo "=============================="
-
-
-timedatectl set-timezone Asia/Shanghai
-
-echo "=============================="
-echo "= docker"
-echo "=============================="
-
-
-if ! command -v docker >/dev/null; then
-curl -fsSL https://get.docker.com | bash
-fi
-
-systemctl enable docker
-systemctl start docker
-
-echo "=============================="
-echo "= docker 日志优化"
-echo "=============================="
-
-mkdir -p /etc/docker
-
-cat >/etc/docker/daemon.json <<EOF
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  }
-}
-EOF
-
-systemctl restart docker
-
-echo "=============================="
-echo "= TCP 调优"
-echo "=============================="
-
-echo "===> 删除所有自定义配置"
-find /etc/sysctl.d -type f ! -path "/usr/lib/sysctl.d/*" -delete 2>/dev/null || true
-
-echo "===> 写入 VPN 优化配置"
-cat > /etc/sysctl.d/99-vpn-tune.conf << 'EOC'
+    #调整网络参数
+    cat <<EOF > /etc/sysctl.conf
 # ========= 基础 =========
 fs.file-max = 1000000
 kernel.pid_max = 4194304
@@ -158,171 +74,206 @@ net.netfilter.nf_conntrack_udp_timeout_stream = 180
 # ========= 内存 =========
 vm.swappiness = 10
 vm.max_map_count = 262144
-EOC
+EOF
 
-sysctl --system
+    #参数生效
+    sysctl -p
 
+    echo "✓ 操作完成"
+}
 
-echo "=============================="
-echo "= VPS 指纹隐藏"
-echo "=============================="
+function ssh_security {
 
-rm -f /etc/motd
-rm -f /etc/update-motd.d/*
+    echo "配置SSH安全"
 
-echo "" > /etc/issue
-echo "" > /etc/issue.net
+    authorized_keys=$(prompt_input "SSH认证authorized_keys" "")
+    newport=$(prompt_input "SSH端口号" "50440")
+    #随机生成root密码
+    rootpw=$(openssl rand -base64 12)
+    newpw=$(prompt_input "root用户新密码" "$rootpw")
 
-echo "=============================="
-echo "= root 密码"
-echo "=============================="
+    echo "root:$newpw" | chpasswd
 
-
-ROOT_PASS=$(openssl rand -base64 18)
-
-echo "root:$ROOT_PASS" | chpasswd
-echo "ROOT PASSWORD: $ROOT_PASS"
-
-echo "=============================="
-echo "= SSH key"
-echo "=============================="
-
-mkdir -p /root/.ssh
-chmod 700 /root/.ssh
-
-echo "$SSH_PUBLIC_KEY" > /root/.ssh/authorized_keys
-
-chmod 600 /root/.ssh/authorized_keys
-
-echo "=============================="
-echo "= SSH 配置"
-echo "=============================="
-
-cat >/etc/ssh/sshd_config <<EOF
-Port 50440
-PermitRootLogin prohibit-password
-PasswordAuthentication no
+    cat <<EOF > /etc/ssh/sshd_config
+Port $newport
+SyslogFacility AUTH
+LogLevel INFO
+LoginGraceTime 2m
+PermitRootLogin yes
+StrictModes yes
+MaxAuthTries 5
+MaxSessions 5
 PubkeyAuthentication yes
-AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication no
+PermitEmptyPasswords no
 ChallengeResponseAuthentication no
-UsePAM no
-X11Forwarding no
-AllowTcpForwarding no
+UsePAM yes
+X11Forwarding yes
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+ClientAliveInterval 120
+ClientAliveCountMax 10
+PidFile /var/run/sshd.pid
+AcceptEnv LANG LC_*
 Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 
-systemctl restart ssh || systemctl restart sshd
+    # Write authorized keys
+    [ ! -d /root/.ssh ] && mkdir -p /root/.ssh
+    echo $authorized_keys > /root/.ssh/authorized_keys
 
-echo "=============================="
-echo "= fail2ban"
-echo "=============================="
+    systemctl restart sshd
 
+    echo "✓ 操作完成"
+}
 
-systemctl enable fail2ban
-systemctl start fail2ban
+function traffic_check {
 
+    echo "流量监控关机"
 
-echo "=============================="
-echo "= ACME"
-echo "=============================="
+    limit=$(prompt_input "月度流量额度GB" "")
+    server=$(prompt_input "服务器识别代号" "")
+    bottoken=$(prompt_input "telegram机器人token" "")
+    chatid=$(prompt_input "telegram机器人chat_id" "")
 
-enter_dir "/opt/acme"
+    cat <<EOF > /root/traffic_check.sh
+#!/bin/bash
 
-curl -fsSL "https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/acme/docker-compose.yml" -o "docker-compose.yml"
+limit=$limit
+server="$server"
 
-docker compose pull
-docker compose run --rm acme --set-default-ca --server letsencrypt
-docker compose run --rm -e CF_Token="$CF_Token" acme --issue --dns dns_cf -d $DOMAIN -d "*.$DOMAIN" --keylength ec-256
-docker compose run --rm acme --install-cert -d $DOMAIN --ecc --key-file /cert/$DOMAIN.key --fullchain-file /cert/$DOMAIN.pem
-docker compose up -d
+# 获取当前流量
+traffic=\$(vnstat --oneline b | awk -F';' '{print \$11}')
+traffic_gb=\$(echo "scale=2; \$traffic / 1024 / 1024 / 1024" | bc)
+echo "本月流量: \$traffic_gb GB, 流量限制: \$limit GB"
 
-cd /opt || exit 1
-
-echo "=============================="
-echo "= sing-box"
-echo "=============================="
-
-enter_dir "/opt/sing-box"
-
-curl -fsSL "https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/sing-box/config.json" -o "config.json.tpl"
-envsubst < "config.json.tpl" > "config.json"
-
-curl -fsSL "https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/sing-box/docker-compose.yml" -o "docker-compose.yml"
-
-docker compose pull
-docker compose up -d
-
-cd /opt || exit 1
-
-echo "=============================="
-echo "= reload cron"
-echo "=============================="
-
-curl -fsSL "https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/reload.sh" -o "reload.sh"
-chmod +x /opt/reload.sh
-
-(crontab -l 2>/dev/null || true; echo "*/10 * * * * /opt/reload.sh >> /var/log/reload.log 2>&1") | crontab -
-
-echo "=============================="
-echo "= docker 自动清理"
-echo "=============================="
-
-
-(crontab -l 2>/dev/null || true; echo "0 4 * * * docker system prune -af >/dev/null 2>&1") | crontab -
-
-
-echo "=============================="
-echo "= 设置swap为内存2倍"
-echo "=============================="
-
-swapfile="/swapfile"
-
-echo "===> Detecting memory..."
-
-mem_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-mem_mb=$((mem_kb / 1024))
-swap_mb=$((mem_mb * 2))
-
-echo "Memory: ${mem_mb} MB"
-echo "Target swap: ${swap_mb} MB"
-
-# 判断是否已有 swap
-if swapon --show | grep -q '^'; then
-    echo "===> Swap exists, removing..."
-    swapoff -a || true
-
-    # 删除旧 swapfile（如果存在）
-    [ -f "$swapfile" ] && rm -f "$swapfile"
-
-    # 清理 fstab 中旧记录
-    sed -i '\|/swapfile|d' /etc/fstab
-else
-    echo "===> No swap found, creating..."
+# 检查流量限制
+if (( \$(echo "\$traffic_gb > \$limit" | bc -l) )); then
+    echo "月流量超过 \$limit GB，自动关机"
+    shutdown -h now
 fi
 
-echo "===> Creating swapfile..."
+# 计算进度条
+usage_ratio=\$(echo "scale=2; \$traffic_gb / \$limit * 100" | bc)
 
-# 优先 fallocate
-if command -v fallocate >/dev/null 2>&1; then
-    fallocate -l ${swap_mb}M $swapfile || dd if=/dev/zero of=$swapfile bs=1M count=$swap_mb
-else
-    dd if=/dev/zero of=$swapfile bs=1M count=$swap_mb
-fi
+# 推送Telegram Bot
+curl -X POST "https://api.telegram.org/bot$bottoken/sendMessage" \
+-F "chat_id=$chatid" \
+-F "text=\${server} 已用 \${traffic_gb} / \${limit} GB / \${usage_ratio}%"
+EOF
 
-chmod 600 $swapfile
-mkswap $swapfile
-swapon $swapfile
+    #增加执行权限
+    chmod +x /root/traffic_check.sh
 
-# 写入 fstab（避免重复）
-if ! grep -q "^$swapfile" /etc/fstab; then
-    echo "$swapfile none swap sw 0 0" >> /etc/fstab
-fi
+    # Prompt user for interval in minutes
+    interval=$(prompt_input "interval in minutes" "10")
+    #添加计划任务
+    cron_add "traffic_check" "*/$interval * * * * /root/traffic_check.sh > /root/traffic_check.log"
 
-echo "===> Done!"
-swapon --show
-free -h
+    echo "✓ 操作完成"
+}
 
-echo "=============================="
-echo "初始化完成"
-echo "SSH端口: 50440"
-echo "=============================="
+function cron_add {
+    local fstr=$1
+    local rstr=$2
+
+    existing_job=$(crontab -l | grep "$fstr")
+    if [ -z "$existing_job" ]; then
+        # Add a new cron job to run /root/check.sh at the specified interval
+        (crontab -l ; echo "$rstr") | crontab -
+        echo "已添加计划任务"
+    else
+        # Modify the existing cron job to run /root/check.sh at the specified interval
+        (crontab -l | sed "s|.*$fstr.*|$rstr|g") | crontab -
+        echo "已修改计划任务"
+    fi
+
+    #展示计划任务
+    crontab -l    
+}
+
+function hostname_change {
+    echo "修改hostname"
+
+    NEW_HOSTNAME=$(prompt_input "hostname" "")
+
+    # 显示当前主机名
+    CURRENT_HOSTNAME=$(hostname)
+    echo "当前主机名: $CURRENT_HOSTNAME"
+
+    # 更新 /etc/hostname 文件
+    echo "$NEW_HOSTNAME" > /etc/hostname
+    echo "/etc/hostname 文件已更新为: $NEW_HOSTNAME"
+
+    # 更新 /etc/hosts 文件
+    if grep -q "$CURRENT_HOSTNAME" /etc/hosts; then
+    sed -i "s/$CURRENT_HOSTNAME/$NEW_HOSTNAME/g" /etc/hosts
+    echo "/etc/hosts 文件中的 $CURRENT_HOSTNAME 已更新为 $NEW_HOSTNAME"
+    else
+    echo "127.0.1.1   $NEW_HOSTNAME" >> /etc/hosts
+    echo "$NEW_HOSTNAME 已添加到 /etc/hosts 文件"
+    fi
+
+    # 使用 hostnamectl 设置新的主机名（适用于 systemd）
+    hostnamectl set-hostname "$NEW_HOSTNAME"
+    echo "hostnamectl 已将主机名设置为: $NEW_HOSTNAME"
+
+    # 确保主机名立即生效
+    hostname "$NEW_HOSTNAME"
+    echo "主机名已立即生效: $NEW_HOSTNAME"
+
+    echo "✓ 操作完成"
+}
+
+
+# 更新系统包索引和安装包的函数
+function update_and_install {
+    sudo apt update
+    sudo apt install -y "$@"
+}
+
+function main_menu {
+
+    #标准输入
+    echo
+    echo
+    cat <<'EOF'
+功能菜单:
+1)  系统升级
+2)  SSH安全配置
+3)  流量tg监控
+4)  修改hostname
+0)  退出
+EOF
+}
+
+
+while [ 2 -gt 0 ]
+  do
+  main_menu
+  echo -n "请选择: "
+  read main_choice
+  echo
+  case $main_choice in
+          1)
+            sys_update
+          ;;
+          2)
+            ssh_security
+          ;;
+          3)
+            traffic_check
+          ;;
+          4)
+            hostname_change
+          ;;
+          0)
+            exit
+          ;;
+          *)
+          clear
+          continue
+          ;;
+  esac
+done
