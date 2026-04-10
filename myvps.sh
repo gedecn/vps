@@ -14,7 +14,7 @@ read_multivar() {
         if [[ -z "$line" ]]; then
             continue
         fi
-        if [[ "$line" =~ ^#([A-Z_]+)$ ]]; then
+        if [[ "$line" =~ ^#([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
             var_name="${BASH_REMATCH[1]}"
             continue
         fi
