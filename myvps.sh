@@ -250,6 +250,7 @@ envsubst < "config.json.tpl" > "config.json"
 curl -fsSL "https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/sing-box/docker-compose.yml" -o "docker-compose.yml"
 
 docker compose pull
+docker rm -f sing-box 2>/dev/null || true
 docker compose up -d
 
 cd /opt || exit 1
