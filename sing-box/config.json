@@ -27,6 +27,27 @@
             "masquerade": "https://bing.com"
         },
         {
+            "type": "anytls",
+            "tag": "anytls-in",
+            "listen": "::",
+            "listen_port": 8443,
+            "users": [
+                {
+                    "name": "user_anytls",
+                    "password": "${UUID}"
+                }
+            ],
+            "padding_scheme": [],
+            "tls": {
+                "enabled": true,
+                "certificate_path": "/etc/cert/${DOMAIN}.pem",
+                "key_path": "/etc/cert/${DOMAIN}.key",
+                "alpn": [
+                    "h3"
+                ]
+            }
+        },
+        {
             "type": "vless",
             "tag": "reality-in",
             "listen": "::",
