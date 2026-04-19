@@ -8,55 +8,18 @@ log() { echo -e "\033[1;32m[INFO]\033[0m $*"; }
 err() { echo -e "\033[1;31m[ERR]\033[0m $*" >&2; exit 1; }
 trap 'err "line $LINENO 执行失败"' ERR
 
-apt_install() {
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y
-    apt-get install -y --no-install-recommends "$@"
-}
-
-is_installed() { dpkg -s "$1" >/dev/null 2>&1; }
-
-# ===== 输入 =====
-read_multivar() {
-    echo "请一次性输入变量，每个变量用 #VAR_NAME 注释标记，按 Ctrl+D 完成："
-    local var_name=""
-    while IFS= read -r line; do
-        line="${line#"${line%%[![:space:]]*}"}"   # 去掉前导空格
-        line="${line%"${line##*[![:space:]]}"}"   # 去掉尾随空格
-        if [[ -z "$line" ]]; then
-            continue
-        fi
-        if [[ "$line" =~ ^#([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
-            var_name="${BASH_REMATCH[1]}"
-            continue
-        fi
-        if [[ -n "$var_name" ]]; then
-            # 自动 export
-            export "$var_name"="$line"
-            var_name=""
-        fi
-    done
-}
-
-require_var() {
-    local n="$1"
-    [[ -z "${!n:-}" ]] && err "缺少必填参数: $n"
-}
-
 # ===== root =====
 [[ "$(id -u)" = "0" ]] || err "必须 root 执行"
 
-# ===== 参数 =====
-read_multivar
+# ===== 必填变量校验（严格）=====
+: "${SSH_PUBLIC_KEY:?缺少 SSH_PUBLIC_KEY}"
+: "${DOMAIN:?缺少 DOMAIN}"
+: "${CF_Token:?缺少 CF_Token}"
+: "${UUID:?缺少 UUID}"
+: "${PRIKEY:?缺少 PRIKEY}"
+: "${SID:?缺少 SID}"
 
-require_var SSH_PUBLIC_KEY
-require_var DOMAIN
-require_var CF_Token
-require_var UUID
-require_var PRIKEY
-require_var SID
-
-
+# ===== 默认值 =====
 SSH_PORT="${SSH_PORT:-50440}"
 
 # ===== 系统 =====
@@ -64,7 +27,7 @@ log "系统更新"
 apt-get update -y
 apt-get upgrade -y
 
-apt_install curl wget cron psmisc fail2ban gettext
+apt-get install -y curl wget cron psmisc fail2ban gettext
 
 # ===== 系统优化（代理+转发）=====
 log "内核优化"
@@ -149,7 +112,23 @@ systemctl restart fail2ban
 # ===== sing-box =====
 log "安装 sing-box"
 
-apt_install sing-box
+mkdir -p /etc/apt/keyrings
+
+curl -fsSL https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc
+[[ -s /etc/apt/keyrings/sagernet.asc ]] || err "sagernet.asc 下载失败"
+
+chmod a+r /etc/apt/keyrings/sagernet.asc
+
+cat >/etc/apt/sources.list.d/sagernet.sources <<'EOF'
+Types: deb
+URIs: https://deb.sagernet.org/
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/sagernet.asc
+EOF
+
+apt-get update -y || err "apt-get update 失败"
+apt-get install -y sing-box || err "sing-box 安装失败"
 
 install -d /etc/sing-box
 
