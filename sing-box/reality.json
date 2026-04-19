@@ -6,6 +6,36 @@
     },
     "inbounds": [
         {
+            "type": "hysteria2",
+            "tag": "hy2-in",
+            "listen": "::",
+            "listen_port": 443,
+            "users": [
+                {
+                    "name": "user_hysteria2",
+                    "password": "${UUID}"
+                }
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "${DOMAIN}",
+                "alpn": [
+                    "h3"
+                ],
+                "acme": {
+                    "domain": [
+                        "${DOMAIN}"
+                    ],
+                    "data_directory": "/etc/sing-box",
+                    "provider": "letsencrypt",
+                    "dns01_challenge": {
+                        "provider": "cloudflare",
+                        "api_token": "${CF_Token}"
+                    }
+                }
+            }
+        },
+        {
             "type": "vless",
             "tag": "reality-in",
             "listen": "::",
