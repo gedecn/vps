@@ -48,9 +48,12 @@ require_var() {
 read_multivar
 
 require_var SSH_PUBLIC_KEY
+require_var DOMAIN
+require_var CF_Token
 require_var UUID
 require_var PRIKEY
 require_var SID
+
 
 SSH_PORT="${SSH_PORT:-50440}"
 
