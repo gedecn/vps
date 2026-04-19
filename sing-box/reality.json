@@ -26,7 +26,6 @@
                     "domain": [
                         "${DOMAIN}"
                     ],
-                    "data_directory": "/etc/sing-box",
                     "provider": "letsencrypt",
                     "dns01_challenge": {
                         "provider": "cloudflare",
