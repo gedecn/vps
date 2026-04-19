@@ -143,7 +143,7 @@ curl -fsSL "https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/sing-bo
 
 log "变量替换"
 
-envsubst '${UUID} ${PRIKEY} ${SID}' < "$tpl" > "$cfg"
+envsubst < "$tpl" > "$cfg"
 
 # ===== 校验 =====
 grep -q '\${' "$cfg" && err "存在未替换变量"
