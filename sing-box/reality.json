@@ -1,0 +1,43 @@
+{
+    "log": {
+        "disabled": false,
+        "level": "error",
+        "timestamp": true
+    },
+    "inbounds": [
+        {
+            "type": "vless",
+            "tag": "reality-in",
+            "listen": "::",
+            "listen_port": 443,
+            "users": [
+                {
+                    "name": "user_reality",
+                    "uuid": "${UUID}",
+                    "flow": "xtls-rprx-vision"
+                }
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "cdn-dynmedia-1.microsoft.com",
+                "reality": {
+                    "enabled": true,
+                    "handshake": {
+                        "server": "cdn-dynmedia-1.microsoft.com",
+                        "server_port": 443
+                    },
+                    "private_key": "${PRIKEY}",
+                    "short_id": [
+                        "${SID}"
+                    ]
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "direct",
+            "tag": "direct-out"
+        }
+    ]
+}
