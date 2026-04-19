@@ -29,6 +29,8 @@ apt-get upgrade -y
 
 apt-get install -y curl wget cron psmisc fail2ban gettext
 
+timedatectl set-timezone Asia/Shanghai
+
 # ===== 系统优化（代理+转发）=====
 log "内核优化"
 
