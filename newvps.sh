@@ -18,18 +18,20 @@ is_installed() { dpkg -s "$1" >/dev/null 2>&1; }
 
 # ===== 输入 =====
 read_multivar() {
-    echo "请输入变量（#变量名 下一行值，Ctrl+D结束）:"
+    echo "请一次性输入变量，每个变量用 #VAR_NAME 注释标记，按 Ctrl+D 完成："
     local var_name=""
     while IFS= read -r line; do
-        line="$(echo "$line" | xargs)"
-        [[ -z "$line" ]] && continue
-
+        line="${line#"${line%%[![:space:]]*}"}"   # 去掉前导空格
+        line="${line%"${line##*[![:space:]]}"}"   # 去掉尾随空格
+        if [[ -z "$line" ]]; then
+            continue
+        fi
         if [[ "$line" =~ ^#([A-Za-z_][A-Za-z0-9_]*)$ ]]; then
             var_name="${BASH_REMATCH[1]}"
             continue
         fi
-
         if [[ -n "$var_name" ]]; then
+            # 自动 export
             export "$var_name"="$line"
             var_name=""
         fi
