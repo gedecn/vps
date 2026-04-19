@@ -115,15 +115,15 @@ log "安装 sing-box"
 mkdir -p /etc/apt/keyrings
 
 curl -fsSL https://sing-box.app/gpg.key -o /etc/apt/keyrings/sagernet.asc
-[[ -s /etc/apt/keyrings/sagernet.asc ]] || err "sagernet.asc 下载失败"
-
 chmod a+r /etc/apt/keyrings/sagernet.asc
 
+rm -f /etc/apt/sources.list.d/*sagernet*
 cat >/etc/apt/sources.list.d/sagernet.sources <<'EOF'
 Types: deb
 URIs: https://deb.sagernet.org/
-Suites: stable
-Components: main
+Suites: *
+Components: *
+Enabled: yes
 Signed-By: /etc/apt/keyrings/sagernet.asc
 EOF
 
