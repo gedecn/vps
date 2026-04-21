@@ -2,6 +2,7 @@
 # =====================================================
 # 企业级 MySQL 备份脚本
 # 支持：并行上传 / 日志 / TG通知 / 健康检测
+# wget https://raw.githubusercontent.com/gedecn/vps/refs/heads/main/backup.sh
 # =====================================================
 
 set -e
