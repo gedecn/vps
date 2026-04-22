@@ -35,6 +35,32 @@
             }
         },
         {
+            "type": "anytls",
+            "tag": "anytls-in",
+            "listen": "::",
+            "listen_port": 8443,
+            "users": [
+                {
+                    "name": "user_anytls",
+                    "password": "${UUID}"
+                }
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "${DOMAIN}",
+                "acme": {
+                    "domain": [
+                        "${DOMAIN}"
+                    ],
+                    "provider": "letsencrypt",
+                    "dns01_challenge": {
+                        "provider": "cloudflare",
+                        "api_token": "${CF_Token}"
+                    }
+                }
+            }
+        },
+        {
             "type": "vless",
             "tag": "reality-in",
             "listen": "::",
