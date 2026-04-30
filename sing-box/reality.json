@@ -42,7 +42,8 @@
             "users": [
                 {
                     "name": "user_tuic",
-                    "uuid": "${UUID}"
+                    "uuid": "${UUID}",
+                    "password": "${UUID}"
                 }
             ],
             "tls": {
